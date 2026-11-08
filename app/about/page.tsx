@@ -1,6 +1,11 @@
 import SiteHeader from "../../components/site-header";
+import { pageMetadata } from "../../lib/site-metadata";
 
-export const metadata = { title: "About — Yousef Husari" };
+export const metadata = pageMetadata(
+  "About — Yousef Husari",
+  "Yousef Husari is a self-taught bespoke designer, creating clothing, bags and everyday objects from fabric to finish, with a focus on heavyweight denim and canvas.",
+  "/about",
+);
 
 export default function About() {
   return <>
