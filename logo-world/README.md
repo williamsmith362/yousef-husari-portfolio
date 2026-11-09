@@ -22,3 +22,8 @@ From this folder, run `python3 -m http.server 8000`, then open `http://localhost
 The view is deliberately minimal: no hints, captions, footer or visible canvas controls. Scrolling automatically zooms proportionally to a 30% smaller overview. The name and links are anchored to the board near the upper-left of the home area, moving and scaling with it while fading only with zoom. The cream utility group has tighter side offsets along the left curve; the mark remains skinny with closer photo spacing.
 
 The canvas uses adaptive 192px previews and retains the 640px photographs for close viewing. Pointer and wheel painting is coalesced with requestAnimationFrame, unchanged visibility attributes are cached, and height-only browser-toolbar resizes avoid remeasuring the grid. The Contact page has no Gmail link.
+
+
+The name and navigation are modestly larger. Simple, next to About, opens `/simple/`: the opening garment grid with normal vertical scrolling and the same full photo viewer. Fancy returns to the animated board.
+
+After the logo forms, a normal cursor can lift each garment. Small alpha masks exclude transparent image space; stable base positions keep moving neighbours from stealing the hover. A critically damped spring coordinates scale and local displacement. The selected image stays within the viewport, the surrounding clothes yield with proximity, and motion stops once settled. A touch tap emphasizes a piece; a second tap opens its photos. Scrolling, dragging, resizing, losing focus or opening the viewer restores the composition. Reduced motion removes neighbour displacement and spring travel.

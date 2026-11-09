@@ -1,3 +1,6 @@
+import { photoFrame } from './photos.mjs';
+import { mountGallery } from './gallery.mjs';
+import { createLivingLogo } from './living-logo.mjs';
 import { revealCamera, homePresence } from './world-presence.mjs';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs';
 
@@ -5,14 +8,13 @@ const view = document.querySelector('.world-viewport');
 const plane = document.querySelector('.world-plane');
 const measurement = document.querySelector('.world-measurement');
 const header = document.querySelector('.world-header');
+const dialog = document.querySelector('.world-gallery');
 const announcement = document.getElementById('world-announcement');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
 const projects = makeProjects(pieces);
 const extent = getExtent(projects);
 const sourceCovers = Array.from(measurement.querySelectorAll('button.piece'));
-const photographs = pieces.flatMap((piece, pieceIndex) => piece.images.map((image, photoIndex) => ({ piece, pieceIndex, image, photoIndex })));
-const photoIndices = new Map(photographs.map((photo, index) => [photo.piece.id + ':' + photo.photoIndex, index]));
 const clamp01 = n => Math.max(0, Math.min(1, n));
 const smooth = n => { const t = clamp01(n); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a + (b - a) * t;
@@ -28,28 +30,6 @@ let headerHeight = 115, previousHeaderOpacity = -1;
 let paintFrame = 0, qualityTimer = 0, layoutWidth = 0;
 let headerAnchor = { x: 24 - size.w / 2, y: 24 };
 
-function photoFrame(image, ratio = .8, preview = false) {
-  const b = image.bounds;
-  const productRatio = b.width / b.height;
-  const frame = document.createElement('span');
-  frame.className = 'product-photo';
-  frame.style.aspectRatio = ratio;
-  const crop = document.createElement('span');
-  crop.className = 'cutout-window';
-  crop.style.width = (productRatio > ratio ? 91 : 91 * productRatio / ratio) + '%';
-  crop.style.height = (productRatio > ratio ? 91 * ratio / productRatio : 91) + '%';
-  const img = document.createElement('img');
-  img.src = (preview ? '/previews/' : '/pieces/') + image.file + '.webp';
-  img.alt = image.alt;
-  img.loading = 'lazy';
-  img.decoding = 'async';
-  img.draggable = false;
-  img.style.cssText = 'width:' + b.sourceWidth / b.width * 100 + '%;height:' + b.sourceHeight / b.height * 100 + '%;left:' + -b.x / b.width * 100 + '%;top:' + -b.y / b.height * 100 + '%';
-  crop.append(img);
-  frame.append(crop);
-  return frame;
-}
-
 const items = projects.flatMap(project => project.items.map(item => {
   const element = item.photoIndex === 0 ? sourceCovers[project.index].cloneNode(true) : document.createElement('button');
   element.className = 'piece world-item';
@@ -64,8 +44,10 @@ const items = projects.flatMap(project => project.items.map(item => {
   imageElement.loading = 'lazy';
   imageElement.removeAttribute('srcset');
   plane.append(element);
-  return { imageElement, ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
+  return { imageElement, frame: element.querySelector('.product-photo'), ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
 }));
+
+const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && !dialog.open, reduced: () => reduce.matches, onDetail: scheduleImageQuality });
 
 function minimumZoom() { return fitCamera(extent, size).z; }
 function homeCamera() {
@@ -99,7 +81,7 @@ function refreshImageQuality() {
   if (dialog.open) return;
   const density = Math.min(2, devicePixelRatio || 1);
   for (const item of items) {
-    const needsDetail = item.visible && Math.max(item.width, item.height) * camera.z * density > 220;
+    const needsDetail = item.visible && Math.max(item.width, item.height) * camera.z * (item.lift?.scale || 1) * density > 200;
     const src = (needsDetail ? '/pieces/' : '/previews/') + item.image.file + '.webp';
     if (item.imageElement.getAttribute('src') !== src) item.imageElement.src = src;
   }
@@ -133,6 +115,7 @@ function paintCamera() {
 
 function paintLayout(value) {
   const spread = value;
+  if (value > .55) living.warm();
   for (const item of items) {
     const start = startingBoxes[item.project.index];
     const isCover = item.photoIndex === 0;
@@ -182,12 +165,14 @@ function animateIntro(time) {
 
 function advanceIntro(delta) {
   if (mode !== 'intro') return;
+  living.clear(true);
   targetProgress = clamp01(targetProgress + delta);
   if (!introFrame) introFrame = requestAnimationFrame(animateIntro);
 }
 
 function stopCamera() { cancelAnimationFrame(cameraFrame); cameraFrame = 0; }
 function moveCamera(next, animate = false) {
+  living.clear();
   stopCamera();
   const destination = clampCamera(next, extent, size, minimumZoom());
   if (!animate || reduce.matches) { camera = destination; requestCameraPaint(); return; }
@@ -222,6 +207,7 @@ function showAll() {
 }
 
 function measure(remeasureLayout = true) {
+  living.clear(true);
   stopCamera();
   headerHeight = header.offsetHeight;
   size = { w: innerWidth, h: innerHeight, top: 0, fitTop: Math.ceil(measurement.querySelector('.site-header').offsetHeight + 16) };
@@ -252,6 +238,7 @@ function measure(remeasureLayout = true) {
 addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => measure(Math.abs(innerWidth - layoutWidth) > 1)); });
 addEventListener('wheel', event => {
   if (dialog.open) return;
+  living.clear();
   event.preventDefault();
   const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? size.h : 1;
   if (mode === 'intro') {
@@ -280,17 +267,24 @@ view.addEventListener('pointerdown', event => {
   const point = { x: event.clientX, y: event.clientY };
   points.set(event.pointerId, point);
   view.setPointerCapture(event.pointerId);
-  if (points.size === 1) gesture = { start: point, last: point, moved: false, multi: false, item: event.target.closest('.world-item') };
+  if (points.size === 1) {
+    const hit = mode === 'explore' ? living.targetAt(point, true, event.pointerType === 'touch') : null;
+    gesture = { start: point, last: point, moved: false, multi: false, pointerType: event.pointerType, selectedAtStart: living.selected(), item: mode === 'explore' ? hit?.element : event.target.closest('.world-item') };
+  }
   else if (gesture) { gesture.multi = gesture.moved = true; gesture.pair = pair(); }
 });
 view.addEventListener('pointermove', event => {
-  if (!points.has(event.pointerId) || !gesture) return;
+  if (!points.has(event.pointerId) || !gesture) {
+    if (!points.size && event.pointerType === 'mouse') living.pointer({x:event.clientX,y:event.clientY});
+    return;
+  }
   event.preventDefault();
   const point = { x: event.clientX, y: event.clientY };
   points.set(event.pointerId, point);
   if (points.size >= 2) {
     const current = pair(), previous = gesture.pair || current;
     gesture.multi = gesture.moved = true;
+    living.clear();
     if (mode === 'explore' && current.distance >= 8 && previous.distance >= 8) {
       const z = Math.max(minimumZoom(), Math.min(3, camera.z * current.distance / previous.distance));
       preset = 'custom';
@@ -301,6 +295,7 @@ view.addEventListener('pointermove', event => {
   }
   if (Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) > 6) gesture.moved = true;
   if (gesture.moved) {
+    living.clear();
     if (mode === 'intro') advanceIntro((gesture.last.y - point.y) / (size.w < 620 ? 2400 : 2700));
     else {
       preset = 'custom';
@@ -312,6 +307,7 @@ view.addEventListener('pointermove', event => {
 });
 function releasePointer(event, cancelled = false) {
   if (!points.has(event.pointerId)) return;
+  if (cancelled) living.clear(true);
   const previous = gesture;
   points.delete(event.pointerId);
   if (view.hasPointerCapture(event.pointerId)) view.releasePointerCapture(event.pointerId);
@@ -322,11 +318,20 @@ function releasePointer(event, cancelled = false) {
     return;
   }
   resetGesture();
-  if (!cancelled && previous && !previous.moved && !previous.multi && previous.item) openGallery(Number(previous.item.dataset.piece), Number(previous.item.dataset.photo), previous.item);
+  if (!cancelled && previous && !previous.moved && !previous.multi) {
+    if (previous.item) {
+      const item = items.find(item => item.element === previous.item);
+      if (mode === 'explore' && previous.pointerType === 'touch' && previous.selectedAtStart !== item) living.emphasize(item, true);
+      else openGallery(Number(previous.item.dataset.piece), Number(previous.item.dataset.photo), previous.item);
+    } else living.clear();
+  }
 }
 view.addEventListener('pointerup', event => releasePointer(event));
 view.addEventListener('pointercancel', event => releasePointer(event, true));
 view.addEventListener('lostpointercapture', event => { if (points.has(event.pointerId)) releasePointer(event, true); });
+view.addEventListener('pointerleave', () => { if (!points.size) living.clear(); });
+view.addEventListener('focusin', event => { const item = items.find(item => item.element === event.target); if (item && event.target.matches(':focus-visible')) living.emphasize(item); });
+view.addEventListener('focusout', event => { if (!event.relatedTarget?.closest('.world-item')) living.clear(); });
 view.addEventListener('dragstart', event => event.preventDefault());
 view.addEventListener('dblclick', event => {
   if (mode === 'explore' && !event.target.closest('.world-item,a')) { event.preventDefault(); zoom(1.8, { x: event.clientX, y: event.clientY }); }
@@ -335,11 +340,12 @@ view.addEventListener('click', event => {
   const item = event.target.closest('.world-item');
   if (item) { event.preventDefault(); if (event.detail === 0) openGallery(Number(item.dataset.piece), Number(item.dataset.photo), item); }
 });
-addEventListener('blur', resetGesture);
-document.addEventListener('visibilitychange', () => { if (document.hidden) resetGesture(); });
+addEventListener('blur', () => { resetGesture(); living.clear(true); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { resetGesture(); living.clear(true); } });
+reduce.addEventListener('change', () => living.clear(true));
 
 let safariScale = 1;
-document.addEventListener('gesturestart', event => { if (!dialog.open) { event.preventDefault(); safariScale = event.scale || 1; } }, { passive: false });
+document.addEventListener('gesturestart', event => { if (!dialog.open) { living.clear(); event.preventDefault(); safariScale = event.scale || 1; } }, { passive: false });
 document.addEventListener('gesturechange', event => {
   if (dialog.open) return;
   event.preventDefault();
@@ -368,109 +374,13 @@ addEventListener('keydown', event => {
   else if (event.key === 'Home') { event.preventDefault(); returnHome(); }
 });
 
-// A real horizontal rail: wheel distance moves pixels, never one photo per event.
-const dialog = document.querySelector('.world-gallery');
-const rail = dialog.querySelector('.gallery-rail');
-const count = dialog.querySelector('.gallery-count');
-const previous = document.getElementById('gallery-previous');
-const next = document.getElementById('gallery-next');
-const slides = photographs.map((photo, index) => {
-  const slide = document.createElement('figure');
-  slide.className = 'gallery-slide';
-  slide.setAttribute('role', 'group');
-  slide.setAttribute('aria-roledescription', 'slide');
-  slide.setAttribute('aria-label', (index + 1) + ' of ' + photographs.length);
-  rail.append(slide);
-  return slide;
-});
-let activePhoto = 0, lastFocus = null, galleryScrollFrame = 0, wheelTimer = 0, railDrag = null, galleryOpenFrame = 0;
-
-function hydrateGallery(index) {
-  for (let i = Math.max(0, index - 3); i <= Math.min(slides.length - 1, index + 3); i++) {
-    if (!slides[i].firstChild) { const frame = photoFrame(photographs[i].image); frame.querySelector('img').loading = 'eager'; slides[i].append(frame); }
-  }
-}
-function updateGallery(index) {
-  activePhoto = Math.max(0, Math.min(photographs.length - 1, index));
-  hydrateGallery(activePhoto);
-  count.textContent = String(activePhoto + 1).padStart(2, '0') + ' / ' + photographs.length;
-  previous.disabled = activePhoto === 0;
-  next.disabled = activePhoto === photographs.length - 1;
-  slides.forEach((slide, i) => slide.setAttribute('aria-hidden', String(i !== activePhoto)));
-}
-function nearestPhoto() {
-  const step = slides[1].offsetLeft - slides[0].offsetLeft;
-  return Math.max(0, Math.min(slides.length - 1, Math.round(rail.scrollLeft / Math.max(1, step))));
-}
-function goToPhoto(index, animate = true) {
-  const destination = Math.max(0, Math.min(slides.length - 1, index));
-  hydrateGallery(destination);
-  const slide = slides[destination];
-  rail.scrollTo({ left: slide.offsetLeft + slide.offsetWidth / 2 - rail.clientWidth / 2, behavior: animate && !reduce.matches ? 'smooth' : 'instant' });
-  if (!animate) updateGallery(destination);
-}
-function openGallery(pieceIndex, photoIndex, trigger) {
+const gallery = mountGallery({ pieces, onOpen() {
   cancelAnimationFrame(introFrame); introFrame = 0; lastIntroTime = 0;
-  targetProgress = progress;
-  stopCamera();
-  lastFocus = trigger;
-  activePhoto = photoIndices.get(pieces[pieceIndex].id + ':' + photoIndex);
-  rail.style.scrollSnapType = 'none';
-  updateGallery(activePhoto);
-  dialog.showModal();
-  goToPhoto(activePhoto, false);
-  galleryOpenFrame = requestAnimationFrame(() => { goToPhoto(activePhoto, false); rail.style.scrollSnapType = ''; });
-}
-function closeGallery() {
-  clearTimeout(wheelTimer);
-  cancelAnimationFrame(galleryOpenFrame);
-  railDrag = null;
-  dialog.close();
-  scheduleImageQuality();
-  if (lastFocus) lastFocus.focus({ preventScroll: true });
-}
-rail.addEventListener('scroll', () => {
-  if (!galleryScrollFrame) galleryScrollFrame = requestAnimationFrame(() => { galleryScrollFrame = 0; if (dialog.open) updateGallery(nearestPhoto()); });
-}, { passive: true });
-rail.addEventListener('wheel', event => {
-  if (event.ctrlKey || event.metaKey) return;
-  event.preventDefault();
-  event.stopPropagation();
-  const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rail.clientWidth : 1;
-  const distance = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-  clearTimeout(wheelTimer);
-  rail.style.scrollSnapType = 'none';
-  rail.scrollBy({ left: distance * factor, behavior: 'instant' });
-  wheelTimer = setTimeout(() => { rail.style.scrollSnapType = ''; goToPhoto(nearestPhoto()); }, 170);
-}, { passive: false });
-rail.addEventListener('pointerdown', event => {
-  if (event.pointerType !== 'mouse' || event.button !== 0) return;
-  railDrag = { id: event.pointerId, x: event.clientX, scroll: rail.scrollLeft };
-  clearTimeout(wheelTimer);
-  rail.setPointerCapture(event.pointerId);
-  rail.style.scrollSnapType = 'none';
-  rail.dataset.dragging = 'true';
-});
-rail.addEventListener('pointermove', event => { if (railDrag && railDrag.id === event.pointerId) rail.scrollLeft = railDrag.scroll - (event.clientX - railDrag.x); });
-function endRailDrag(event) {
-  if (!railDrag || railDrag.id !== event.pointerId) return;
-  railDrag = null;
-  delete rail.dataset.dragging;
-  if (rail.hasPointerCapture(event.pointerId)) rail.releasePointerCapture(event.pointerId);
-  rail.style.scrollSnapType = '';
-  goToPhoto(nearestPhoto());
-}
-rail.addEventListener('pointerup', endRailDrag);
-rail.addEventListener('pointercancel', endRailDrag);
-rail.addEventListener('lostpointercapture', endRailDrag);
-rail.addEventListener('keydown', event => { if (event.key === 'Home' || event.key === 'End') { event.preventDefault(); goToPhoto(event.key === 'Home' ? 0 : slides.length - 1); } });
-dialog.querySelector('.close-button').addEventListener('click', closeGallery);
-dialog.addEventListener('cancel', event => { event.preventDefault(); closeGallery(); });
-previous.addEventListener('click', () => goToPhoto(activePhoto - 1));
-next.addEventListener('click', () => goToPhoto(activePhoto + 1));
-dialog.addEventListener('keydown', event => {
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); goToPhoto(activePhoto + (event.key === 'ArrowRight' ? 1 : -1)); }
-});
+  targetProgress = progress; stopCamera(); living.clear(true);
+}, onClose: scheduleImageQuality });
+function openGallery(pieceIndex, photoIndex, trigger) { gallery.open(pieceIndex, photoIndex, trigger); }
+function closeGallery() { gallery.close(); }
+function goToPhoto(index, animate) { gallery.goToPhoto(index, animate); }
 
 measure();
 document.fonts.ready.then(() => measure(true));
