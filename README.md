@@ -1,18 +1,21 @@
-# yousef-husari-portfolio
-Yousef Husari — bespoke clothing and objects portfolio
+# Yousef Husari portfolio
 
-## Site branding
+The current approved portfolio is in [`logo-world/`](./logo-world/). It includes all 47 projects and 228 photographs, the scroll-to-logo animation, interactive garments, and the Simple vertical-scrolling view.
 
-Page metadata is defined in `lib/site-metadata.ts` and exported through the Next.js App Router layouts and pages. Canonical URLs use the existing primary domain, `https://www.yousefhusari.com`.
+This version includes the larger inset name and navigation, iPhone canvas and catalogue improvements, more forgiving garment hitboxes, and the borderless close icon.
 
-The supplied handwritten yh mark is preserved as vector artwork in `public/branding/yousef-husari-logo.svg`. The favicon SVG adapts to light and dark browser themes; opaque PNGs and a multi-size ICO provide fallbacks. The opaque 180px Apple touch icon has a 116px centered mark and at least 32px padding. Saved Home Screen links use the name **Yousef Husari**.
+## Vercel
 
-The public 1200 × 630 sharing image is:
+Deploy the `main` branch. The root `vercel.json` serves `logo-world` directly with no install or build step. The framework is Other.
 
-https://www.yousefhusari.com/branding/yousef-husari-social-20261108.png
+An existing Vercel project whose Root Directory is already `logo-world` also works with the configuration inside that folder. No environment variables or backend are required.
 
-It uses the supplied mark, the site's existing Playfair Display lettering, and the black-and-white palette. All three pages have individual titles, descriptions, canonical URLs, and complete Open Graph and social-card metadata, including image alt text.
+## Local preview
 
-There was no web-app manifest or service worker. Launch behavior is preserved. The branding folder also includes 192px and 512px square icons and a separate 512px maskable icon whose artwork fits inside the central 80% safe circle, ready for any future manifest.
+From `logo-world`, run `python3 -m http.server 8000` and open `http://localhost:8000`.
 
-Icon and preview filenames are versioned to refresh old caches. On a future redesign, create new filenames and update the metadata references. Existing Home Screen shortcuts may need to be removed and added again; social services control their own preview caches.
+## Previous version
+
+The previous `main` is preserved on `backup/main-before-logo-v8-2026-11-08`. Older application source remains in the repository for reference; the active static website is `logo-world`.
+
+The published website files match the approved preview runtime, including the final hover-target and photo-viewer close-button changes.

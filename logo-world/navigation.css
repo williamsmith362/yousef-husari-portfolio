@@ -1,0 +1,9 @@
+:root { --home-inset: 48px; }
+.site-header .wordmark { font-size: 72.8px; }
+.site-header .nav-link { font-size: 15.6px; }
+@media (max-width:620px) {
+  :root { --home-inset: 32px; }
+  .site-header .wordmark { font-size: min(57.2px, calc(16.94vw - 10.85px)); }
+  .site-header nav { gap: 23px; }
+  .site-header .nav-link { font-size: 14.3px; }
+}
