@@ -54,6 +54,37 @@ export function shapeHit(item, point, mask, pose = {x:0,y:0,scale:1}) {
   return Boolean(mask.bits[bit>>3] & (1<<(bit&7)));
 }
 
+// Distance to the visible cutout, measured in world units. The small screen
+// margin stays the same size at every zoom level, including the full logo.
+export function shapeDistance(item,point,mask,limit,pose={x:0,y:0,scale:1}) {
+  const b=item.image.bounds,ratio=b.width/b.height;
+  const cw=ratio>item.ratio ? .91 : .91*ratio/item.ratio;
+  const ch=ratio>item.ratio ? .91*item.ratio/ratio : .91;
+  const width=item.w*pose.scale*cw,height=item.h*pose.scale*ch;
+  const left=item.x+item.w/2+pose.x-width/2,top=item.y+item.h/2+pose.y-height/2;
+  const dx=Math.max(left-point.x,0,point.x-left-width),dy=Math.max(top-point.y,0,point.y-top-height);
+  if(dx*dx+dy*dy>limit*limit) return Infinity;
+  if(!mask) return Math.hypot(dx,dy);
+  if(shapeHit(item,point,mask,pose)) return 0;
+  if(!mask.cells) {
+    const cells=[];
+    for(let bit=0;bit<mask.w*mask.h;bit++) if(mask.bits[bit>>3]&(1<<(bit&7))) cells.push(bit);
+    mask.cells=Uint16Array.from(cells);
+  }
+  const cellW=width*b.sourceWidth/(b.width*mask.w),cellH=height*b.sourceHeight/(b.height*mask.h);
+  const originX=left-width*b.x/b.width,originY=top-height*b.y/b.height;
+  let best=Infinity;
+  for(const cell of mask.cells) {
+    const x=originX+(cell%mask.w)*cellW,y=originY+Math.floor(cell/mask.w)*cellH;
+    const l=Math.max(left,x),r=Math.min(left+width,x+cellW),t=Math.max(top,y),bottom=Math.min(top+height,y+cellH);
+    if(l>r || t>bottom) continue;
+    const xDistance=Math.max(l-point.x,0,point.x-r),yDistance=Math.max(t-point.y,0,point.y-bottom);
+    const distance=xDistance*xDistance+yDistance*yDistance;
+    if(distance<best) best=distance;
+  }
+  return best<=limit*limit?Math.sqrt(best):Infinity;
+}
+
 export function createLivingLogo({items,view,getScene,ready,reduced,onDetail}) {
   let active=null, targets=new Map(), frame=0, lastTime=0;
   let candidate=null, switchTimer=0, leaveTimer=0, lastPoint=null, warming=null;
@@ -76,14 +107,17 @@ export function createLivingLogo({items,view,getScene,ready,reduced,onDetail}) {
     if (preferExpanded && active && hit(active,p,true)) return active;
     const direct=items.find(item=>item.visible && hit(item,p));
     if (direct) return direct;
-    if (active && hit(active,p,true)) return active;
-    if (touch) {
-      const {camera}=getScene(), d=7/camera.z;
-      for (const offset of [{x:d,y:0},{x:-d,y:0},{x:0,y:d},{x:0,y:-d}]) {
-        const near=items.find(item=>item.visible && hit(item,{x:p.x+offset.x,y:p.y+offset.y}));
-        if (near) return near;
-      }
+    const {camera}=getScene(),padding=(touch?10:6)/camera.z;
+    let nearest=null,distance=Infinity,activeDistance=Infinity;
+    for(const item of items) if(item.visible) {
+      const candidate=shapeDistance(item,p,masks.get(item.image.file),padding);
+      if(item===active) activeDistance=candidate;
+      if(candidate<distance) {nearest=item;distance=candidate;}
     }
+    // Keep the current piece when two padded areas are almost equally close.
+    if(nearest && activeDistance<=distance+1.25/camera.z) return active;
+    if(nearest) return nearest;
+    if(active && shapeDistance(active,p,masks.get(active.image.file),padding,active.lift)<Infinity) return active;
     return null;
   }
   function render(item) {

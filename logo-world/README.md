@@ -5,7 +5,7 @@ The approved portfolio canvas, including all 47 projects and 228 photographs. Sc
 ## Deploy on Vercel
 
 - Repository: `williamsmith362/yousef-husari-portfolio`
-- Branch: `portfolio-logo-world`
+- Branch: `main`
 - Root Directory: `logo-world`
 - Framework Preset: **Other**
 - Build Command: **empty**
@@ -13,7 +13,7 @@ The approved portfolio canvas, including all 47 projects and 228 photographs. Sc
 
 The included `vercel.json` sets the framework, install, build and output options. No dependency installation, build step, environment variables or backend is needed. Import or configure this folder and deploy when ready.
 
-Home, About and Contact are included locally. The contact page has the email link, copy-address button beside by.yousefhusar@gmail.com. Metadata is prepared for `https://www.yousefhusari.com`. The previous application remains at the repository root.
+Home, About and Contact are included locally. The contact page has the email link, copy-address button beside by.yousefhusar@gmail.com. Metadata is prepared for `https://www.yousefhusari.com`. The repository's root Vercel configuration also serves this folder; previous application code is retained at the root for reference.
 
 ## Local preview
 
@@ -32,3 +32,6 @@ After the logo forms, a normal cursor can lift each garment. Small alpha masks e
 The home name and navigation are approximately 30% larger, with responsive sizing on narrow phones. Their board anchor is inset 48px on desktop and 32px on phones. The canvas computes the complete animation but only paints garment elements near the viewport, with an extra margin for smooth entry. Unchanged opacity and camera poses avoid repeated work.
 
 The catalogue retains native horizontal touch scrolling and pinch zoom. It keeps at most five full photo elements on phones (seven on desktop), updates counters and accessibility only when the active slide changes, and caches slide geometry. Leaving the viewer releases its photo elements. Safari toolbar and viewport changes wait until the current swipe and momentum finish; the board no longer attempts to recenter a catalogue through an undefined variable during resizing.
+
+
+Garment targeting now includes a six-pixel mouse margin and a ten-pixel touch margin around the visible shape. The margin stays constant in screen pixels while zooming. Overlapping margins choose the nearest visible cutout, with a small preference for the current target to avoid flicker.

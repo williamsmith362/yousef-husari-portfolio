@@ -20,7 +20,8 @@ html.gallery-open { overflow: hidden; }
 .world-gallery::backdrop { background: #fff; }
 .world-gallery .lightbox-header { height: 82px; min-height: 82px; display: flex; align-items: center; justify-content: space-between; padding: 14px 32px; }
 .world-gallery .wordmark { font-size: 28px; }
-.world-gallery .close-button { width: 44px; height: 44px; font-size: 30px; line-height: 44px; }
+.world-gallery .close-button { width: 44px; height: 44px; font-size: 30px; line-height: 44px; border: 0; outline: none; box-shadow: none; }
+.world-gallery .close-button:focus-visible { outline: none; opacity: .55; }
 .world-gallery .gallery-rail { --slide-width: min(calc((var(--gallery-height,100dvh) - 158px) * .72), calc(100vw - 72px)); --slide-height: calc(var(--slide-width) * 1.25); position: relative; scroll-behavior:auto; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
 .world-gallery .gallery-slide { flex-shrink: 0; }
 .world-gallery .gallery-footer button { font-size: 24px; font-weight: 400; }
