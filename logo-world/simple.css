@@ -1,7 +1,7 @@
 html, body { height: auto; overflow: visible; overscroll-behavior: auto; }
 body { display: block; }
-.simple-header { align-items: flex-start; gap:14px; margin:24px 24px 0; padding:0; }
-.simple-header + .photo-portfolio { margin-top: 44px; }
+.simple-header { align-items: flex-start; gap:14px; margin:var(--home-inset) var(--home-inset) 0; padding:0; }
+.simple-header + .photo-portfolio { margin-top: 16px; }
 .photo-portfolio .piece { cursor: pointer; }
 .photo-portfolio .piece:focus-visible { outline:1px solid #777; outline-offset:5px; }
-@media(max-width:620px) { .simple-header + .photo-portfolio { margin-top:40px; } }
+@media(max-width:620px) { .simple-header + .photo-portfolio { margin-top:24px; } }

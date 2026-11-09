@@ -8,12 +8,14 @@ for (const tile of covers) {
   image.removeAttribute('srcset');
   image.loading=tile.classList.contains('featured-piece')?'eager':'lazy';
 }
-const gallery=mountGallery({pieces});
+let pendingMeasure=false;
+const gallery=mountGallery({pieces,onClose(){if(pendingMeasure){pendingMeasure=false;measure();}}});
 for(const tile of covers) tile.addEventListener('click',()=>gallery.open(Number(tile.dataset.piece),0,tile));
 gallery.dialog.querySelector('[data-home]').addEventListener('click',event=>{event.preventDefault();gallery.close();window.scrollTo({top:0,behavior:'instant'});});
 const grid=document.querySelector('.masonry-grid');
 let width=0, frame=0;
 function measure() {
+  if(gallery.dialog.open){pendingMeasure=true;return;}
   width=innerWidth;
   for(const tile of grid.children) tile.style.gridRowEnd='span '+Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height+parseFloat(getComputedStyle(tile).paddingBottom));
   grid.dataset.masonry='true';

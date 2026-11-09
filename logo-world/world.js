@@ -1,7 +1,7 @@
 import { photoFrame } from './photos.mjs';
 import { mountGallery } from './gallery.mjs';
 import { createLivingLogo } from './living-logo.mjs';
-import { revealCamera, homePresence } from './world-presence.mjs';
+import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs';
 
 const view = document.querySelector('.world-viewport');
@@ -28,7 +28,7 @@ let preset = 'home';
 let startingBoxes = [];
 let headerHeight = 115, previousHeaderOpacity = -1;
 let paintFrame = 0, qualityTimer = 0, layoutWidth = 0;
-let headerAnchor = { x: 24 - size.w / 2, y: 24 };
+let headerAnchor = homeAnchor(size), pendingMeasure = false;
 
 const items = projects.flatMap(project => project.items.map(item => {
   const element = item.photoIndex === 0 ? sourceCovers[project.index].cloneNode(true) : document.createElement('button');
@@ -94,9 +94,16 @@ function scheduleImageQuality() {
 
 function updateHitTargets() {
   for (const item of items) {
-    const x = pivot.x + (item.x - camera.x) * camera.z;
-    const y = pivot.y + (item.y - camera.y) * camera.z;
-    const visible = item.alpha > .3 && x < size.w && x + item.width * camera.z > 0 && y < size.h - 45 && y + item.height * camera.z > size.top;
+    const box=screenBox(item,camera,pivot);
+    const rendered=item.alpha>.001 && inViewport(box,size,96);
+    if(item.rendered!==rendered) {item.element.hidden=!rendered;item.rendered=rendered;}
+    if(rendered && item.layoutDirty) {
+      const opacity=item.alpha.toFixed(4);
+      if(item.lastOpacity!==opacity) {item.element.style.opacity=opacity;item.lastOpacity=opacity;}
+      item.element.style.transform='translate('+item.x.toFixed(3)+'px,'+item.y.toFixed(3)+'px) scale('+(item.width/item.w).toFixed(6)+')';
+      item.layoutDirty=false;
+    }
+    const visible = item.alpha>.3 && inViewport(box,size);
     if (item.visible !== visible) {
       item.visible = visible;
       item.element.setAttribute('aria-hidden', String(!visible));
@@ -129,8 +136,7 @@ function paintLayout(value) {
     item.alpha = isCover
       ? (start.y < size.h + 100 ? 1 : smooth((value - .08 - item.project.index / projects.length * .1) / .36))
       : smooth((value - .16 - item.project.index / projects.length * .2 - item.photoIndex * .005) / .34);
-    item.element.style.opacity = item.alpha.toFixed(4);
-    item.element.style.transform = 'translate(' + item.x.toFixed(3) + 'px,' + item.y.toFixed(3) + 'px) scale(' + (item.width / item.w).toFixed(6) + ')';
+    item.layoutDirty=true;
   }
   if (mode === 'intro') {
     camera = revealCamera(spread, pivot, fitCamera(extent, size));
@@ -175,6 +181,7 @@ function moveCamera(next, animate = false) {
   living.clear();
   stopCamera();
   const destination = clampCamera(next, extent, size, minimumZoom());
+  if(Math.abs(destination.x-camera.x)<.0001 && Math.abs(destination.y-camera.y)<.0001 && Math.abs(destination.z-camera.z)<.000001) return;
   if (!animate || reduce.matches) { camera = destination; requestCameraPaint(); return; }
   const from = { ...camera }, start = performance.now();
   function tick(time) {
@@ -207,6 +214,7 @@ function showAll() {
 }
 
 function measure(remeasureLayout = true) {
+  if(dialog.open) {pendingMeasure=true;return;}
   living.clear(true);
   stopCamera();
   headerHeight = header.offsetHeight;
@@ -221,7 +229,7 @@ function measure(remeasureLayout = true) {
       const box = tile.querySelector('.product-photo').getBoundingClientRect();
       return { x: box.left - size.w / 2, y: box.top, w: box.width, h: box.height };
     });
-    headerAnchor = { x: 24 - size.w / 2, y: 24 };
+    headerAnchor = homeAnchor(size);
     layoutWidth = innerWidth;
   }
   if (mode === 'explore') {
@@ -232,7 +240,6 @@ function measure(remeasureLayout = true) {
   if (mode === 'explore' && !layoutChanged) paintCamera();
   else paintLayout(progress);
   if (layoutChanged) refreshImageQuality();
-  if (dialog.open) goToPhoto(activePhoto, false);
 }
 
 addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => measure(Math.abs(innerWidth - layoutWidth) > 1)); });
@@ -377,10 +384,12 @@ addEventListener('keydown', event => {
 const gallery = mountGallery({ pieces, onOpen() {
   cancelAnimationFrame(introFrame); introFrame = 0; lastIntroTime = 0;
   targetProgress = progress; stopCamera(); living.clear(true);
-}, onClose: scheduleImageQuality });
+}, onClose() {
+  if(pendingMeasure) {pendingMeasure=false;measure(Math.abs(innerWidth-layoutWidth)>1);}
+  scheduleImageQuality();
+} });
 function openGallery(pieceIndex, photoIndex, trigger) { gallery.open(pieceIndex, photoIndex, trigger); }
 function closeGallery() { gallery.close(); }
-function goToPhoto(index, animate) { gallery.goToPhoto(index, animate); }
 
 measure();
 document.fonts.ready.then(() => measure(true));
