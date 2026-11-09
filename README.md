@@ -1,4 +1,8 @@
 # yousef-husari-portfolio
+
+## Logo-world portfolio
+
+The approved scrolling canvas is in [`logo-world/`](logo-world/README.md) on branch `portfolio-logo-world`. For Vercel, select that branch and set Root Directory to `logo-world`; the included configuration serves it as a static site with no build step. Home, About and Contact are included.
 Yousef Husari — bespoke clothing and objects portfolio
 
 ## Site branding
