@@ -43,7 +43,7 @@ export function makeLogoProjects(pieces) {
   });
   const totalWeight = specifications.reduce((sum, p) => sum + p.weight, 0);
   const totalLength = curves.reduce((sum, c) => sum + c.length, 0);
-  let scale = totalWeight / totalLength * 1.28;
+  let scale = totalWeight / totalLength * .90;
   let finalProjects;
 
   for (let attempt = 0; attempt < 22; attempt++) {
@@ -83,11 +83,11 @@ export function makeLogoProjects(pieces) {
           const lower = (projectCursor + 15) * unit;
           const upper = (projectCursor + specification.weight - 15) * unit;
           let placed = null;
-          for (let trial = 0; trial < 65; trial++) {
+          for (let trial = 0; trial < 105; trial++) {
             const offset = trial === 0 ? 0 : Math.ceil(trial / 2) * 18 * (trial % 2 ? 1 : -1) / scale;
             const distance = Math.max(lower, Math.min(upper, nominal + offset));
             const p = sample(curve, distance);
-            const side = (noise(specification.index * 101 + item.photoIndex * 17 + 7) - .5) * item.w * 1.5 + (trial ? Math.sin(trial * 2.4) * item.w * .36 : 0);
+            const side = (noise(specification.index * 101 + item.photoIndex * 17 + 7) - .5) * item.w * 1.5 + (trial ? Math.sin(trial * 2.4) * item.w * .7 : 0);
             const x = p.x * scale - p.ty * side - item.w / 2;
             const y = p.y * scale + p.tx * side - item.h / 2;
             const box = { x, y, w: item.w, h: item.h };

@@ -1,12 +1,10 @@
+import { revealCamera, homePresence } from './world-presence.mjs';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs';
 
 const view = document.querySelector('.world-viewport');
 const plane = document.querySelector('.world-plane');
 const measurement = document.querySelector('.world-measurement');
 const header = document.querySelector('.world-header');
-const tools = document.querySelector('.world-tools');
-const instruction = document.getElementById('world-instruction');
-const progressOutput = document.getElementById('world-progress');
 const announcement = document.getElementById('world-announcement');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
@@ -18,7 +16,7 @@ const photoIndices = new Map(photographs.map((photo, index) => [photo.piece.id +
 const clamp01 = n => Math.max(0, Math.min(1, n));
 const smooth = n => { const t = clamp01(n); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a + (b - a) * t;
-let size = { w: innerWidth, h: innerHeight, top: 139 };
+let size = { w: innerWidth, h: innerHeight, top: 0, fitTop: 139 };
 let pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
 let camera = { x: 0, y: pivot.y, z: 1 };
 let mode = 'intro';
@@ -26,6 +24,7 @@ let progress = 0, targetProgress = 0, introFrame = 0, lastIntroTime = 0;
 let cameraFrame = 0, resizeFrame = 0, navigationReadyAt = 0;
 let preset = 'home';
 let startingBoxes = [];
+let headerTimer = 0, headerHeight = 115;
 
 function photoFrame(image, ratio = .8) {
   const b = image.bounds;
@@ -68,6 +67,33 @@ function homeCamera() {
   return { x: 0, y: 340, z: Math.min(overviewZoom, Math.max(.2, (size.h - size.top - 52) / 430)) };
 }
 
+function setHeaderOpacity(value) {
+  header.style.opacity = value.toFixed(4);
+  header.inert = value < .06;
+  header.setAttribute('aria-hidden', String(value < .06));
+}
+
+// Reposition only while invisible: the home links fade, never slide.
+function updateHomeHeader() {
+  clearTimeout(headerTimer);
+  if (mode === 'intro') {
+    header.style.left = '50%';
+    header.style.top = '0px';
+    setHeaderOpacity(1 - smooth(progress / .16));
+    return;
+  }
+  setHeaderOpacity(0);
+  headerTimer = setTimeout(() => {
+    const first = projects[0].items[0];
+    const cover = { x: projects[0].x + first.x + first.w / 2, y: projects[0].y + first.y + first.h / 2, h: first.h };
+    const pose = homePresence(camera, minimumZoom(), cover, pivot, size, headerHeight);
+    if (pose.opacity < .06) return;
+    header.style.left = pose.x.toFixed(2) + 'px';
+    header.style.top = pose.top.toFixed(2) + 'px';
+    requestAnimationFrame(() => setHeaderOpacity(pose.opacity));
+  }, 165);
+}
+
 function updateHitTargets() {
   for (const item of items) {
     const x = pivot.x + (item.x - camera.x) * camera.z;
@@ -82,6 +108,7 @@ function paintCamera() {
   plane.style.transform = 'translate3d(' + (-camera.x * camera.z).toFixed(3) + 'px,' + (pivot.y - camera.y * camera.z).toFixed(3) + 'px,0) scale(' + camera.z.toFixed(6) + ')';
   plane.dataset.camera = JSON.stringify(camera);
   updateHitTargets();
+  updateHomeHeader();
 }
 
 function paintLayout(value) {
@@ -103,10 +130,8 @@ function paintLayout(value) {
     item.element.style.transform = 'translate3d(' + item.x.toFixed(3) + 'px,' + item.y.toFixed(3) + 'px,0) scale(' + (item.width / item.w).toFixed(6) + ')';
   }
   if (mode === 'intro') {
-    const home = homeCamera();
-    camera = { x: 0, y: mix(pivot.y, home.y, spread), z: mix(1, home.z, spread) };
+    camera = revealCamera(spread, pivot, fitCamera(extent, size));
   }
-  progressOutput.textContent = ' · ' + Math.round(value * 100) + '%';
   view.dataset.progress = value.toFixed(5);
   paintCamera();
 }
@@ -114,14 +139,11 @@ function paintLayout(value) {
 function finishIntro() {
   progress = targetProgress = 1;
   mode = 'explore';
-  preset = 'home';
-  camera = homeCamera();
+  preset = 'all';
+  camera = fitCamera(extent, size);
   paintLayout(1);
   view.dataset.mode = mode;
-  tools.hidden = false;
-  instruction.textContent = size.w < 620 ? 'Drag · Pinch to zoom' : 'Drag / scroll to explore · Pinch to zoom';
-  progressOutput.hidden = true;
-  announcement.textContent = 'The portfolio is unfolded. Project positions are now fixed. Drag or scroll to explore, pinch to zoom, or use the canvas controls.';
+  announcement.textContent = 'Portfolio expanded.';
   navigationReadyAt = performance.now() + 220;
 }
 
@@ -181,9 +203,9 @@ function showAll() {
 
 function measure() {
   stopCamera();
-  size = { w: innerWidth, h: innerHeight, top: Math.ceil(header.getBoundingClientRect().bottom + 16) };
+  headerHeight = header.offsetHeight;
+  size = { w: innerWidth, h: innerHeight, top: 0, fitTop: Math.ceil(measurement.querySelector('.site-header').offsetHeight + 16) };
   pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
-  view.style.setProperty('--safe-top', size.top + 'px');
   const grid = measurement.querySelector('.masonry-grid');
   for (const tile of grid.children) tile.style.gridRowEnd = 'span ' + Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height + parseFloat(getComputedStyle(tile).paddingBottom));
   grid.dataset.masonry = 'true';
@@ -192,7 +214,6 @@ function measure() {
     return { x: box.left - size.w / 2, y: box.top, w: box.width, h: box.height };
   });
   if (mode === 'explore') {
-    instruction.textContent = size.w < 620 ? 'Drag · Pinch to zoom' : 'Drag / scroll to explore · Pinch to zoom';
     if (preset === 'home') camera = homeCamera();
     else if (preset === 'all') camera = fitCamera(extent, size);
     else camera = clampCamera(camera, extent, size, minimumZoom());
@@ -207,7 +228,7 @@ addEventListener('wheel', event => {
   event.preventDefault();
   const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? size.h : 1;
   if (mode === 'intro') {
-    if (!event.ctrlKey && !event.metaKey) advanceIntro(event.deltaY * factor / (size.w < 620 ? 1350 : 1550));
+    if (!event.ctrlKey && !event.metaKey) advanceIntro(event.deltaY * factor / (size.w < 620 ? 2400 : 2700));
     return;
   }
   // Ignore only the remaining momentum of the gesture that completed the intro.
@@ -253,7 +274,7 @@ view.addEventListener('pointermove', event => {
   }
   if (Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) > 6) gesture.moved = true;
   if (gesture.moved) {
-    if (mode === 'intro') advanceIntro((gesture.last.y - point.y) / (size.w < 620 ? 1350 : 1550));
+    if (mode === 'intro') advanceIntro((gesture.last.y - point.y) / (size.w < 620 ? 2400 : 2700));
     else {
       preset = 'custom';
       view.dataset.dragging = 'true';
@@ -280,6 +301,9 @@ view.addEventListener('pointerup', event => releasePointer(event));
 view.addEventListener('pointercancel', event => releasePointer(event, true));
 view.addEventListener('lostpointercapture', event => { if (points.has(event.pointerId)) releasePointer(event, true); });
 view.addEventListener('dragstart', event => event.preventDefault());
+view.addEventListener('dblclick', event => {
+  if (mode === 'explore' && !event.target.closest('.world-item,a')) { event.preventDefault(); zoom(1.8, { x: event.clientX, y: event.clientY }); }
+});
 view.addEventListener('click', event => {
   const item = event.target.closest('.world-item');
   if (item) { event.preventDefault(); if (event.detail === 0) openGallery(Number(item.dataset.piece), Number(item.dataset.photo), item); }
@@ -297,10 +321,6 @@ document.addEventListener('gesturechange', event => {
 }, { passive: false });
 document.addEventListener('gestureend', event => { if (!dialog.open) event.preventDefault(); }, { passive: false });
 
-document.getElementById('world-in').addEventListener('click', () => zoom(1.35, pivot, true));
-document.getElementById('world-out').addEventListener('click', () => zoom(1 / 1.35, pivot, true));
-document.getElementById('world-home').addEventListener('click', returnHome);
-document.getElementById('world-fit').addEventListener('click', showAll);
 document.querySelectorAll('.world-header [data-home], .world-gallery [data-home]').forEach(link => link.addEventListener('click', returnHome));
 document.querySelector('.skip-link').addEventListener('click', event => {
   event.preventDefault();

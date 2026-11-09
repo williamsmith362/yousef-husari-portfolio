@@ -7,7 +7,7 @@ export function getExtent(projects) {
 }
 
 export function fitCamera(extent, view) {
-  return { x: (extent.l + extent.r) / 2, y: (extent.t + extent.b) / 2, z: Math.min((view.w - 56) / (extent.r - extent.l), (view.h - view.top - 56) / (extent.b - extent.t)) };
+  return { x: (extent.l + extent.r) / 2, y: (extent.t + extent.b) / 2, z: .70 * Math.min((view.w - 56) / (extent.r - extent.l), (view.h - (view.fitTop ?? view.top) - 56) / (extent.b - extent.t)) };
 }
 
 export function clampCamera(camera, extent, view, minimum, maximum = 3) {
