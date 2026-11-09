@@ -8,11 +8,6 @@ export function revealCamera(progress, pivot, destination) {
 }
 
 export function homePresence(camera, minimumZoom, cover, pivot, view, headerHeight) {
-  const x = pivot.x + (cover.x - camera.x) * camera.z;
-  const photoTop = pivot.y + (cover.y - cover.h / 2 - camera.y) * camera.z;
-  const top = photoTop - headerHeight - 32;
   const zoom = smooth((Math.log(camera.z / minimumZoom) - Math.log(1.8)) / Math.log(4));
-  const horizontal = smooth(Math.min(x - 100, view.w - 100 - x) / 90);
-  const vertical = smooth(Math.min(top - 8, view.h - 80 - top - headerHeight) / 55);
-  return { x, top, opacity: zoom * horizontal * vertical };
+  return { x: view.w / 2, top: (view.h - headerHeight) / 2, opacity: zoom };
 }

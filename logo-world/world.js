@@ -24,9 +24,11 @@ let progress = 0, targetProgress = 0, introFrame = 0, lastIntroTime = 0;
 let cameraFrame = 0, resizeFrame = 0, navigationReadyAt = 0;
 let preset = 'home';
 let startingBoxes = [];
-let headerTimer = 0, headerHeight = 115;
+let headerHeight = 115, previousHeaderOpacity = -1;
+let paintFrame = 0, qualityTimer = 0, layoutWidth = 0;
+let heroOpeningSource = null;
 
-function photoFrame(image, ratio = .8) {
+function photoFrame(image, ratio = .8, preview = false) {
   const b = image.bounds;
   const productRatio = b.width / b.height;
   const frame = document.createElement('span');
@@ -37,7 +39,7 @@ function photoFrame(image, ratio = .8) {
   crop.style.width = (productRatio > ratio ? 91 : 91 * productRatio / ratio) + '%';
   crop.style.height = (productRatio > ratio ? 91 * ratio / productRatio : 91) + '%';
   const img = document.createElement('img');
-  img.src = '/pieces/' + image.file + '.webp';
+  img.src = (preview ? '/previews/' : '/pieces/') + image.file + '.webp';
   img.alt = image.alt;
   img.loading = 'lazy';
   img.decoding = 'async';
@@ -56,42 +58,54 @@ const items = projects.flatMap(project => project.items.map(item => {
   element.dataset.photo = item.photoIndex;
   element.style.width = item.w + 'px';
   element.setAttribute('aria-label', 'View ' + project.piece.name + ', ' + item.image.label + ', image ' + (item.photoIndex + 1) + ' of ' + project.items.length);
-  if (item.photoIndex > 0) element.append(photoFrame(item.image, item.ratio));
+  if (item.photoIndex > 0) element.append(photoFrame(item.image, item.ratio, true));
+  const imageElement = element.querySelector('img');
+  imageElement.src = '/previews/' + item.image.file + '.webp';
+  imageElement.loading = 'lazy';
+  imageElement.removeAttribute('srcset');
   plane.append(element);
-  return { ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
+  return { imageElement, ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
 }));
 
 function minimumZoom() { return fitCamera(extent, size).z; }
 function homeCamera() {
   const overviewZoom = size.w < 620 ? Math.max(.22, Math.min(.4, size.w / 1250)) : Math.min(.65, size.w / 2000);
-  return { x: 0, y: 340, z: Math.min(overviewZoom, Math.max(.2, (size.h - size.top - 52) / 430)) };
+  const z = Math.min(overviewZoom, Math.max(.2, (size.h - size.top - 52) / 430));
+  const first = projects[0].items[0];
+  return { x: 0, y: 340 + first.h / 2 + (headerHeight / 2 + 28) / z, z };
 }
 
 function setHeaderOpacity(value) {
+  if (Math.abs(value - previousHeaderOpacity) < .001) return;
+  previousHeaderOpacity = value;
   header.style.opacity = value.toFixed(4);
   header.inert = value < .06;
   header.setAttribute('aria-hidden', String(value < .06));
 }
 
-// Reposition only while invisible: the home links fade, never slide.
+// Position is entirely CSS-owned. Pan never moves or hides the name.
 function updateHomeHeader() {
-  clearTimeout(headerTimer);
-  if (mode === 'intro') {
-    header.style.left = '50%';
-    header.style.top = '0px';
-    setHeaderOpacity(1 - smooth(progress / .16));
-    return;
+  setHeaderOpacity(homePresence(camera, minimumZoom(), null, pivot, size, headerHeight).opacity);
+}
+
+// Touch events can arrive faster than the display. Paint only the latest pose.
+function requestCameraPaint() {
+  if (!paintFrame) paintFrame = requestAnimationFrame(() => { paintFrame = 0; paintCamera(); });
+}
+
+function refreshImageQuality() {
+  if (dialog.open) return;
+  const density = Math.min(2, devicePixelRatio || 1);
+  for (const item of items) {
+    const needsDetail = item.visible && Math.max(item.width, item.height) * camera.z * density > 220;
+    const src = (needsDetail ? '/pieces/' : '/previews/') + item.image.file + '.webp';
+    if (item.imageElement.getAttribute('src') !== src) item.imageElement.src = src;
   }
-  setHeaderOpacity(0);
-  headerTimer = setTimeout(() => {
-    const first = projects[0].items[0];
-    const cover = { x: projects[0].x + first.x + first.w / 2, y: projects[0].y + first.y + first.h / 2, h: first.h };
-    const pose = homePresence(camera, minimumZoom(), cover, pivot, size, headerHeight);
-    if (pose.opacity < .06) return;
-    header.style.left = pose.x.toFixed(2) + 'px';
-    header.style.top = pose.top.toFixed(2) + 'px';
-    requestAnimationFrame(() => setHeaderOpacity(pose.opacity));
-  }, 165);
+}
+
+function scheduleImageQuality() {
+  clearTimeout(qualityTimer);
+  qualityTimer = setTimeout(refreshImageQuality, 110);
 }
 
 function updateHitTargets() {
@@ -99,8 +113,11 @@ function updateHitTargets() {
     const x = pivot.x + (item.x - camera.x) * camera.z;
     const y = pivot.y + (item.y - camera.y) * camera.z;
     const visible = item.alpha > .3 && x < size.w && x + item.width * camera.z > 0 && y < size.h - 45 && y + item.height * camera.z > size.top;
-    item.element.setAttribute('aria-hidden', String(!visible));
-    item.element.tabIndex = visible ? 0 : -1;
+    if (item.visible !== visible) {
+      item.visible = visible;
+      item.element.setAttribute('aria-hidden', String(!visible));
+      item.element.tabIndex = visible ? 0 : -1;
+    }
   }
 }
 
@@ -109,6 +126,7 @@ function paintCamera() {
   plane.dataset.camera = JSON.stringify(camera);
   updateHitTargets();
   updateHomeHeader();
+  scheduleImageQuality();
 }
 
 function paintLayout(value) {
@@ -127,7 +145,7 @@ function paintLayout(value) {
       ? (start.y < size.h + 100 ? 1 : smooth((value - .08 - item.project.index / projects.length * .1) / .36))
       : smooth((value - .16 - item.project.index / projects.length * .2 - item.photoIndex * .005) / .34);
     item.element.style.opacity = item.alpha.toFixed(4);
-    item.element.style.transform = 'translate3d(' + item.x.toFixed(3) + 'px,' + item.y.toFixed(3) + 'px,0) scale(' + (item.width / item.w).toFixed(6) + ')';
+    item.element.style.transform = 'translate(' + item.x.toFixed(3) + 'px,' + item.y.toFixed(3) + 'px) scale(' + (item.width / item.w).toFixed(6) + ')';
   }
   if (mode === 'intro') {
     camera = revealCamera(spread, pivot, fitCamera(extent, size));
@@ -170,7 +188,7 @@ function stopCamera() { cancelAnimationFrame(cameraFrame); cameraFrame = 0; }
 function moveCamera(next, animate = false) {
   stopCamera();
   const destination = clampCamera(next, extent, size, minimumZoom());
-  if (!animate || reduce.matches) { camera = destination; paintCamera(); return; }
+  if (!animate || reduce.matches) { camera = destination; requestCameraPaint(); return; }
   const from = { ...camera }, start = performance.now();
   function tick(time) {
     const t = clamp01((time - start) / 190), eased = smooth(t);
@@ -201,28 +219,39 @@ function showAll() {
   moveCamera(fitCamera(extent, size), true);
 }
 
-function measure() {
+function measure(remeasureLayout = true) {
   stopCamera();
   headerHeight = header.offsetHeight;
   size = { w: innerWidth, h: innerHeight, top: 0, fitTop: Math.ceil(measurement.querySelector('.site-header').offsetHeight + 16) };
   pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
-  const grid = measurement.querySelector('.masonry-grid');
-  for (const tile of grid.children) tile.style.gridRowEnd = 'span ' + Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height + parseFloat(getComputedStyle(tile).paddingBottom));
-  grid.dataset.masonry = 'true';
-  startingBoxes = sourceCovers.map(tile => {
-    const box = tile.querySelector('.product-photo').getBoundingClientRect();
-    return { x: box.left - size.w / 2, y: box.top, w: box.width, h: box.height };
-  });
+  const layoutChanged = remeasureLayout || !startingBoxes.length;
+  if (layoutChanged) {
+    const grid = measurement.querySelector('.masonry-grid');
+    for (const tile of grid.children) tile.style.gridRowEnd = 'span ' + Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height + parseFloat(getComputedStyle(tile).paddingBottom));
+    grid.dataset.masonry = 'true';
+    startingBoxes = sourceCovers.map(tile => {
+      const box = tile.querySelector('.product-photo').getBoundingClientRect();
+      return { x: box.left - size.w / 2, y: box.top, w: box.width, h: box.height };
+    });
+    heroOpeningSource = { ...startingBoxes[0] };
+    layoutWidth = innerWidth;
+  }
+  // Leave the centered name clear without cropping the opening backpack.
+  const headerTop = (size.h - headerHeight) / 2;
+  const openingScale = Math.min(1, Math.max(70, headerTop - 40) / heroOpeningSource.h);
+  startingBoxes[0] = { x: -heroOpeningSource.w * openingScale / 2, y: Math.max(20, headerTop - heroOpeningSource.h * openingScale - 16), w: heroOpeningSource.w * openingScale, h: heroOpeningSource.h * openingScale };
   if (mode === 'explore') {
     if (preset === 'home') camera = homeCamera();
     else if (preset === 'all') camera = fitCamera(extent, size);
     else camera = clampCamera(camera, extent, size, minimumZoom());
   }
-  paintLayout(progress);
+  if (mode === 'explore' && !layoutChanged) paintCamera();
+  else paintLayout(progress);
+  if (layoutChanged) refreshImageQuality();
   if (dialog.open) goToPhoto(activePhoto, false);
 }
 
-addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(measure); });
+addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => measure(Math.abs(innerWidth - layoutWidth) > 1)); });
 addEventListener('wheel', event => {
   if (dialog.open) return;
   event.preventDefault();
@@ -399,6 +428,7 @@ function closeGallery() {
   cancelAnimationFrame(galleryOpenFrame);
   railDrag = null;
   dialog.close();
+  scheduleImageQuality();
   if (lastFocus) lastFocus.focus({ preventScroll: true });
 }
 rail.addEventListener('scroll', () => {
@@ -445,4 +475,4 @@ dialog.addEventListener('keydown', event => {
 });
 
 measure();
-document.fonts.ready.then(measure);
+document.fonts.ready.then(() => measure(true));

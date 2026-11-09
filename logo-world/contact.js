@@ -2,7 +2,7 @@ const copy = document.getElementById('copy-email');
 const feedback = document.getElementById('email-feedback');
 copy.addEventListener('click', async () => {
   try {
-    await navigator.clipboard.writeText('by.yousefhusari@gmail.com');
+    await navigator.clipboard.writeText('by.yousefhusar@gmail.com');
     copy.textContent = 'Copied';
     feedback.textContent = 'Email address copied.';
   } catch {
@@ -12,6 +12,6 @@ copy.addEventListener('click', async () => {
     const selection = getSelection();
     selection.removeAllRanges();
     selection.addRange(range);
-    feedback.textContent = 'Copy the selected email address, or open Gmail.';
+    feedback.textContent = 'Copy the selected email address.';
   }
 });

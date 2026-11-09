@@ -13,10 +13,12 @@ The approved portfolio canvas, including all 47 projects and 228 photographs. Sc
 
 The included `vercel.json` sets the framework, install, build and output options. No dependency installation, build step, environment variables or backend is needed. Import or configure this folder and deploy when ready.
 
-Home, About and Contact are included locally. The contact page has the email link, Gmail compose fallback, and copy-address button. Metadata is prepared for `https://www.yousefhusari.com`. The previous application remains at the repository root.
+Home, About and Contact are included locally. The contact page has the email link, copy-address button beside by.yousefhusar@gmail.com. Metadata is prepared for `https://www.yousefhusari.com`. The previous application remains at the repository root.
 
 ## Local preview
 
 From this folder, run `python3 -m http.server 8000`, then open `http://localhost:8000`.
 
-The view is deliberately minimal: no hints, captions, footer or visible canvas controls. Scrolling automatically zooms proportionally to a 30% smaller overview. Home-area name and links fade in and out without sliding; the mark remains skinny with closer photo spacing.
+The view is deliberately minimal: no hints, captions, footer or visible canvas controls. Scrolling automatically zooms proportionally to a 30% smaller overview. The name and links stay centered and fade only with zoom; the mark remains skinny with closer photo spacing.
+
+The canvas uses adaptive 192px previews and retains the 640px photographs for close viewing. Pointer and wheel painting is coalesced with requestAnimationFrame, unchanged visibility attributes are cached, and height-only browser-toolbar resizes avoid remeasuring the grid. The Contact page has no Gmail link.
