@@ -1,4 +1,4 @@
-import { mountGallery } from './gallery.mjs';
+import { mountGallery } from './gallery.mjs?v=20261109';
 
 const pieces=JSON.parse(document.getElementById('portfolio-data').textContent);
 const covers=[...document.querySelectorAll('.photo-portfolio button.piece')];

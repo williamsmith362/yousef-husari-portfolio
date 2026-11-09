@@ -1,6 +1,6 @@
 # Yousef Husari — logo-world portfolio
 
-The approved portfolio canvas, including all 47 projects and 228 photographs. Scroll to unfold, then drag or scroll to explore, pinch to zoom, and the scroll reveal ends on the supplied yh logo automatically. Project groups have varied photo sizes, larger main photographs, no captions, and no footer.
+The approved portfolio canvas, including all 48 projects and 237 photographs. Scroll to unfold, then drag or scroll to explore, pinch to zoom, and the scroll reveal ends on the supplied yh logo automatically. Project groups have varied photo sizes, larger main photographs, no captions, and no footer.
 
 ## Deploy on Vercel
 
@@ -35,3 +35,6 @@ The catalogue retains native horizontal touch scrolling and pinch zoom. It keeps
 
 
 Garment targeting now includes a six-pixel mouse margin and a ten-pixel touch margin around the visible shape. The margin stays constant in screen pixels while zooming. Overlapping margins choose the nearest visible cutout, with a small preference for the current target to avoid flicker.
+
+
+November 9 photo update: nine supplied views of the croc-trimmed raw denim form one new project. The straight front photograph is its cover. Transparent WebP cutouts, 192px previews, matching alpha hit masks and all nine catalogue slides are included in both Fancy and Simple. Existing photographs and navigation behavior are preserved. Changing the screen width now retains the selected catalogue photograph even when the browser clamps horizontal scrolling before dispatching its resize event.

@@ -1,6 +1,6 @@
 # Yousef Husari portfolio
 
-The current approved portfolio is in [`logo-world/`](./logo-world/). It includes all 47 projects and 228 photographs, the scroll-to-logo animation, interactive garments, and the Simple vertical-scrolling view.
+The current approved portfolio is in [`logo-world/`](./logo-world/). It includes all 48 projects and 237 photographs, the scroll-to-logo animation, interactive garments, and the Simple vertical-scrolling view.
 
 This version includes the larger inset name and navigation, iPhone canvas and catalogue improvements, more forgiving garment hitboxes, and the borderless close icon.
 
@@ -19,3 +19,7 @@ From `logo-world`, run `python3 -m http.server 8000` and open `http://localhost:
 The previous `main` is preserved on `backup/main-before-logo-v8-2026-11-08`. Older application source remains in the repository for reference; the active static website is `logo-world`.
 
 The published website files match the approved preview runtime, including the final hover-target and photo-viewer close-button changes.
+
+Nine new croc-trimmed raw denim photographs are grouped as one project, with matching cutouts, previews and garment hit masks in Fancy and Simple.
+
+Screen-width changes preserve the selected catalogue photograph, including when the browser clamps the horizontal scroll position during rotation or resizing.

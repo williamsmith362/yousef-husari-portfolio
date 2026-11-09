@@ -1,5 +1,5 @@
 import { photoFrame } from './photos.mjs';
-import { mountGallery } from './gallery.mjs';
+import { mountGallery } from './gallery.mjs?v=20261109';
 import { createLivingLogo } from './living-logo.mjs';
 import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs';

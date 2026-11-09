@@ -30,6 +30,7 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
   let activePhoto=0, visiblePhoto=-1, intendedPhoto=null, lastFocus=null;
   let scrollFrame=0, openFrame=0, wheelTimer=0, settleTimer=0, resizeTimer=0;
   let railDrag=null, nativeTouches=0, pendingResize=false, lastScroll=-Infinity;
+  let measuredWidth=innerWidth, resizePhoto=null;
   let geometry={step:1,firstCenter:0,width:0};
 
   function releaseImage(index) {
@@ -51,6 +52,7 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
   function measureGeometry() {
     const first=slides[0];
     geometry={step:slides.length>1?slides[1].offsetLeft-first.offsetLeft:first.offsetWidth,firstCenter:first.offsetLeft+first.offsetWidth/2,width:rail.clientWidth};
+    measuredWidth=innerWidth;
   }
   function nearestPhoto() {return nearestGalleryIndex(rail.scrollLeft,geometry,slides.length);}
   function updateGallery(index,force=false) {
@@ -79,7 +81,7 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
       // Safari's browser bars can resize the viewport during a native swipe.
       // Let that swipe and its momentum finish before changing slide geometry.
       if(nativeTouches || pointers.size || railDrag || performance.now()-lastScroll<160) {queueResize();return;}
-      const index=nearestPhoto();pendingResize=false;
+      const index=resizePhoto??nearestPhoto();pendingResize=false;resizePhoto=null;
       setHeight();measureGeometry();goToPhoto(index,false);
     },100);
   }
@@ -98,7 +100,7 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
   function closeGallery() {
     clearTimeout(wheelTimer);clearTimeout(settleTimer);clearTimeout(resizeTimer);
     cancelAnimationFrame(openFrame);cancelAnimationFrame(scrollFrame);scrollFrame=0;
-    railDrag=null;nativeTouches=0;pointers.clear();pendingResize=false;intendedPhoto=null;
+    railDrag=null;nativeTouches=0;pointers.clear();pendingResize=false;resizePhoto=null;intendedPhoto=null;
     delete rail.dataset.dragging;rail.style.scrollSnapType='';
     dialog.close();document.documentElement.classList.remove('gallery-open');
     for(const i of [...loaded]) releaseImage(i);
@@ -106,9 +108,15 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
   }
   rail.addEventListener('scroll',()=>{
     if(!dialog.open) return;
+    // A narrower viewport can clamp scrollLeft before the resize event. Keep
+    // the selected photograph until the new slide geometry has been measured.
+    if(innerWidth!==measuredWidth) {
+      resizePhoto??=activePhoto;pendingResize=true;queueResize();return;
+    }
+    if(resizePhoto!==null) return;
     lastScroll=performance.now();
     clearTimeout(settleTimer);settleTimer=setTimeout(()=>{intendedPhoto=null;},160);
-    if(!scrollFrame) scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;if(dialog.open) updateGallery(nearestPhoto());});
+    if(!scrollFrame) scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;if(dialog.open && resizePhoto===null) updateGallery(nearestPhoto());});
   },{passive:true});
   rail.addEventListener('wheel',event=>{
     if(event.ctrlKey || event.metaKey) return;
@@ -141,7 +149,7 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
     nativeTouches=event.touches.length;intendedPhoto=null;
     if(pendingResize) queueResize();
   },{passive:true});
-  addEventListener('resize',()=>{if(dialog.open){pendingResize=true;queueResize();}});
+  addEventListener('resize',()=>{if(dialog.open){if(innerWidth!==measuredWidth) resizePhoto??=activePhoto;pendingResize=true;queueResize();}});
   rail.addEventListener('keydown',event=>{if(event.key==='Home' || event.key==='End'){event.preventDefault();goToPhoto(event.key==='Home'?0:slides.length-1,false);}});
   dialog.querySelector('.close-button').addEventListener('click',closeGallery);
   dialog.addEventListener('cancel',event=>{event.preventDefault();closeGallery();});
