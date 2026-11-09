@@ -19,6 +19,6 @@ Home, About and Contact are included locally. The contact page has the email lin
 
 From this folder, run `python3 -m http.server 8000`, then open `http://localhost:8000`.
 
-The view is deliberately minimal: no hints, captions, footer or visible canvas controls. Scrolling automatically zooms proportionally to a 30% smaller overview. The name and links stay centered and fade only with zoom; the mark remains skinny with closer photo spacing.
+The view is deliberately minimal: no hints, captions, footer or visible canvas controls. Scrolling automatically zooms proportionally to a 30% smaller overview. The name and links are anchored to the board near the upper-left of the home area, moving and scaling with it while fading only with zoom. The cream utility group has tighter side offsets along the left curve; the mark remains skinny with closer photo spacing.
 
 The canvas uses adaptive 192px previews and retains the 640px photographs for close viewing. Pointer and wheel painting is coalesced with requestAnimationFrame, unchanged visibility attributes are cached, and height-only browser-toolbar resizes avoid remeasuring the grid. The Contact page has no Gmail link.

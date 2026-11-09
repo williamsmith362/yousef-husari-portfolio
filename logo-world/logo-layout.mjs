@@ -87,7 +87,10 @@ export function makeLogoProjects(pieces) {
             const offset = trial === 0 ? 0 : Math.ceil(trial / 2) * 18 * (trial % 2 ? 1 : -1) / scale;
             const distance = Math.max(lower, Math.min(upper, nominal + offset));
             const p = sample(curve, distance);
-            const side = (noise(specification.index * 101 + item.photoIndex * 17 + 7) - .5) * item.w * 1.5 + (trial ? Math.sin(trial * 2.4) * item.w * .7 : 0);
+            // Keep the cream utility group on the left-hand curve instead of
+            // letting its supporting views drift away from the trouser cover.
+            const sideSpread = specification.piece.id === '03' ? .7 : 1;
+            const side = ((noise(specification.index * 101 + item.photoIndex * 17 + 7) - .5) * item.w * 1.5 + (trial ? Math.sin(trial * 2.4) * item.w * .7 : 0)) * sideSpread;
             const x = p.x * scale - p.ty * side - item.w / 2;
             const y = p.y * scale + p.tx * side - item.h / 2;
             const box = { x, y, w: item.w, h: item.h };

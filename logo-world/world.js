@@ -26,7 +26,7 @@ let preset = 'home';
 let startingBoxes = [];
 let headerHeight = 115, previousHeaderOpacity = -1;
 let paintFrame = 0, qualityTimer = 0, layoutWidth = 0;
-let heroOpeningSource = null;
+let headerAnchor = { x: 24 - size.w / 2, y: 24 };
 
 function photoFrame(image, ratio = .8, preview = false) {
   const b = image.bounds;
@@ -83,9 +83,11 @@ function setHeaderOpacity(value) {
   header.setAttribute('aria-hidden', String(value < .06));
 }
 
-// Position is entirely CSS-owned. Pan never moves or hides the name.
+// Keep one world coordinate beside the spawn area, just like the photographs.
 function updateHomeHeader() {
-  setHeaderOpacity(homePresence(camera, minimumZoom(), null, pivot, size, headerHeight).opacity);
+  const pose = homePresence(camera, minimumZoom(), headerAnchor, pivot);
+  header.style.transform = 'translate3d(' + pose.x.toFixed(3) + 'px,' + pose.top.toFixed(3) + 'px,0) scale(' + pose.scale.toFixed(6) + ')';
+  setHeaderOpacity(pose.opacity);
 }
 
 // Touch events can arrive faster than the display. Paint only the latest pose.
@@ -233,13 +235,9 @@ function measure(remeasureLayout = true) {
       const box = tile.querySelector('.product-photo').getBoundingClientRect();
       return { x: box.left - size.w / 2, y: box.top, w: box.width, h: box.height };
     });
-    heroOpeningSource = { ...startingBoxes[0] };
+    headerAnchor = { x: 24 - size.w / 2, y: 24 };
     layoutWidth = innerWidth;
   }
-  // Leave the centered name clear without cropping the opening backpack.
-  const headerTop = (size.h - headerHeight) / 2;
-  const openingScale = Math.min(1, Math.max(70, headerTop - 40) / heroOpeningSource.h);
-  startingBoxes[0] = { x: -heroOpeningSource.w * openingScale / 2, y: Math.max(20, headerTop - heroOpeningSource.h * openingScale - 16), w: heroOpeningSource.w * openingScale, h: heroOpeningSource.h * openingScale };
   if (mode === 'explore') {
     if (preset === 'home') camera = homeCamera();
     else if (preset === 'all') camera = fitCamera(extent, size);

@@ -7,7 +7,7 @@ export function revealCamera(progress, pivot, destination) {
   return { x: destination.x * travel, y: pivot.y + (destination.y - pivot.y) * travel, z: Math.exp(Math.log(destination.z) * p) };
 }
 
-export function homePresence(camera, minimumZoom, cover, pivot, view, headerHeight) {
+export function homePresence(camera, minimumZoom, anchor, pivot) {
   const zoom = smooth((Math.log(camera.z / minimumZoom) - Math.log(1.8)) / Math.log(4));
-  return { x: view.w / 2, top: (view.h - headerHeight) / 2, opacity: zoom };
+  return { x: pivot.x + (anchor.x - camera.x) * camera.z, top: pivot.y + (anchor.y - camera.y) * camera.z, scale: camera.z, opacity: zoom };
 }
