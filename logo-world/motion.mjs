@@ -1,11 +1,23 @@
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
+export const SCROLL_FEEL = Object.freeze({
+  wheelGain: .72,
+  mouseResponse: 100,
+  trackpadResponse: 40,
+  introMobilePixels: 3200,
+  introDesktopPixels: 3500,
+  flickGain: .62,
+  maxFlickSpeed: 2400,
+  decayMs: 135,
+  maxGlideMs: 650
+});
+
 export function damp(value, target, elapsedMs, responseMs = 80) {
   return target + (value - target) * Math.exp(-Math.max(0, elapsedMs) / responseMs);
 }
 
 // Exact integration keeps the glide distance consistent at 60Hz and 120Hz.
-export function decayVelocity(velocity, elapsedMs, decayMs = 85) {
+export function decayVelocity(velocity, elapsedMs, decayMs = SCROLL_FEEL.decayMs) {
   const decay = Math.exp(-Math.max(0, elapsedMs) / decayMs);
   return { distance: velocity * decayMs / 1000 * (1 - decay), velocity: velocity * decay };
 }
@@ -18,7 +30,7 @@ export function dampCamera(camera, target, elapsedMs, responseMs = 80) {
   return { x: camera.x + (target.x - camera.x) * travel, y: camera.y + (target.y - camera.y) * travel, z };
 }
 
-export function createVelocityTracker({ windowMs = 80, staleMs = 70, maxSpeed = 2800 } = {}) {
+export function createVelocityTracker({ windowMs = 80, staleMs = 70, maxSpeed = SCROLL_FEEL.maxFlickSpeed } = {}) {
   let samples = [];
   return {
     reset(point, time) { samples = point ? [{ ...point, time }] : []; },
@@ -46,6 +58,6 @@ export function createWheelSmoothing() {
     const fine = event.deltaMode === 0 && (Math.abs(event.deltaX) > 0 || !Number.isInteger(event.deltaY) || Math.abs(event.deltaY) < 40 || time - last < 24);
     if (fine) fineUntil = time + 240;
     last = time;
-    return time < fineUntil ? 28 : 80;
+    return time < fineUntil ? SCROLL_FEEL.trackpadResponse : SCROLL_FEEL.mouseResponse;
   };
 }

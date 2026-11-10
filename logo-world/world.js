@@ -4,7 +4,7 @@ import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
 import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=locked-board-1';
 import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=locked-board-1';
-import { damp, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=momentum-images-1';
+import { SCROLL_FEEL, damp, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=chat-scroll-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=momentum-images-1';
 
 const view = document.querySelector('.world-viewport');
@@ -71,6 +71,7 @@ const items = projects.flatMap(project => project.items.map(item => {
 const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && !dialog.open && !cameraFrame, reduced: () => reduce.matches, onDetail: scheduleImageQuality, reservedArea: BOARD_HEADER_AREA });
 
 function minimumZoom() { return fitCamera(extent, size).z; }
+function introScrollRange() { return size.w < 620 ? SCROLL_FEEL.introMobilePixels : SCROLL_FEEL.introDesktopPixels; }
 
 function finishDragHint() {
   dragHintActive = false;
@@ -308,12 +309,12 @@ function animateIntro(time) {
   const elapsed = lastIntroTime ? Math.min(64, time - lastIntroTime) : 16;
   lastIntroTime = time;
   if (introVelocity && !reduce.matches) {
-    const step = decayVelocity(introVelocity, elapsed, 100);
+    const step = decayVelocity(introVelocity, elapsed);
     const next = progress + step.distance;
     progress = targetProgress = clamp01(next);
     introVelocity = step.velocity;
     introGlideTime += elapsed;
-    if (next <= 0 || next >= 1 || Math.abs(introVelocity) < .008 || introGlideTime >= 420) introVelocity = 0;
+    if (next <= 0 || next >= 1 || Math.abs(introVelocity) < .004 || introGlideTime >= SCROLL_FEEL.maxGlideMs) introVelocity = 0;
   } else {
     progress = reduce.matches ? targetProgress : damp(progress, targetProgress, elapsed, introResponse);
     if (Math.abs(progress - targetProgress) < .00005) progress = targetProgress;
@@ -340,6 +341,7 @@ function advanceIntro(delta, { direct = false, response = 80 } = {}) {
 }
 
 function startIntroGlide(velocity) {
+  velocity *= SCROLL_FEEL.flickGain;
   if (mode !== 'intro' || reduce.matches || Math.abs(velocity) < .025) return;
   stopIntro(); introVelocity = velocity;
   lastIntroTime = performance.now();
@@ -368,7 +370,7 @@ function animateCamera(time) {
     const bounded = clampCamera(next, extent, size, minimumZoom());
     cameraVelocity = { x: Math.abs(next.x-bounded.x) > .0001 ? 0 : x.velocity, y: Math.abs(next.y-bounded.y) > .0001 ? 0 : y.velocity };
     camera = bounded; cameraGlideTime += elapsed;
-    if (Math.hypot(cameraVelocity.x,cameraVelocity.y) < 12 || cameraGlideTime >= 400) cameraVelocity = { x: 0, y: 0 };
+    if (Math.hypot(cameraVelocity.x,cameraVelocity.y) < 8 || cameraGlideTime >= SCROLL_FEEL.maxGlideMs) cameraVelocity = { x: 0, y: 0 };
   }
   paintCamera();
   if (cameraTarget || cameraVelocity.x || cameraVelocity.y) cameraFrame = requestAnimationFrame(animateCamera);
@@ -388,6 +390,7 @@ function moveCamera(next, animate = false, response = 80, input = 'program') {
 }
 
 function startCameraGlide(velocity) {
+  velocity = { x: velocity.x * SCROLL_FEEL.flickGain, y: velocity.y * SCROLL_FEEL.flickGain };
   if (mode !== 'explore' || reduce.matches || Math.hypot(velocity.x,velocity.y) < 45) return;
   stopCamera(); living.clear(true); cameraVelocity = velocity;
   lastCameraTime = performance.now();
@@ -455,7 +458,7 @@ addEventListener('wheel', event => {
   const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? size.h : 1;
   const response = wheelResponse(event, performance.now());
   if (mode === 'intro') {
-    if (!event.ctrlKey && !event.metaKey) advanceIntro(event.deltaY * factor / (size.w < 620 ? 2400 : 2700), { response });
+    if (!event.ctrlKey && !event.metaKey) advanceIntro(event.deltaY * factor / introScrollRange(), { response });
     return;
   }
   // Ignore only the remaining momentum of the gesture that completed the intro.
@@ -463,8 +466,8 @@ addEventListener('wheel', event => {
   if (mode === 'explore' && !event.ctrlKey && !event.metaKey && camera.z <= minimumZoom() * 1.005 && Math.abs(event.deltaY) > 0) showDragHint();
   if (event.ctrlKey || event.metaKey) zoom(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * .01), { x: event.clientX, y: event.clientY }, true, response, 'wheel-zoom');
   else {
-    const dx = (event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX) * factor;
-    const dy = (event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY) * factor;
+    const dx = (event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX) * factor * SCROLL_FEEL.wheelGain;
+    const dy = (event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY) * factor * SCROLL_FEEL.wheelGain;
     preset = 'custom';
     if (dx || dy) markDragHintAction('drag');
     const origin = cameraInput === 'wheel-pan' && cameraTarget ? cameraTarget : camera;
@@ -518,7 +521,7 @@ view.addEventListener('pointermove', event => {
   if (Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) > 6) gesture.moved = true;
   if (gesture.moved) {
     living.clear();
-    if (mode === 'intro') advanceIntro((gesture.last.y - point.y) / (size.w < 620 ? 2400 : 2700), { direct: true });
+    if (mode === 'intro') advanceIntro((gesture.last.y - point.y) / introScrollRange(), { direct: true });
     else {
       preset = 'custom';
       view.dataset.dragging = 'true';
@@ -544,7 +547,7 @@ function releasePointer(event, cancelled = false) {
   }
   resetGesture();
   if (!cancelled && previous?.moved && !previous.multi && previous.pointerType !== 'mouse' && previous.startedMode === mode) {
-    if (mode === 'intro') startIntroGlide(-velocity.y / (size.w < 620 ? 2400 : 2700));
+    if (mode === 'intro') startIntroGlide(-velocity.y / introScrollRange());
     else startCameraGlide({ x: -velocity.x, y: -velocity.y });
   }
   if (!cancelled && previous && !previous.moved && !previous.multi) {
