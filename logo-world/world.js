@@ -25,7 +25,7 @@ let camera = { x: 0, y: pivot.y, z: 1 };
 let mode = 'intro';
 let progress = 0, targetProgress = 0, introFrame = 0, lastIntroTime = 0;
 let cameraFrame = 0, resizeFrame = 0, navigationReadyAt = 0;
-let dragHintTimer = 0, lastDragHint = -Infinity;
+let dragHintActive = false, headerReentered = false;
 const worldCellSize = 512;
 let spatialGrid = null;
 const renderedItems = new Set();
@@ -58,14 +58,25 @@ const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, 
 function minimumZoom() { return fitCamera(extent, size).z; }
 
 function showDragHint() {
-  const now = performance.now();
-  if (!dragHint || dialog.open || now - lastDragHint < 1300) return;
-  lastDragHint = now;
-  clearTimeout(dragHintTimer);
-  dragHint.classList.remove('is-visible');
-  void dragHint.offsetWidth;
+  if (!dragHint || dialog.open || dragHintActive) return;
+  dragHintActive = true;
+  dragHint.style.setProperty('--hint-opacity', '1');
+  dragHint.style.setProperty('--hint-blur', '9px');
   dragHint.classList.add('is-visible');
-  dragHintTimer = setTimeout(() => dragHint.classList.remove('is-visible'), 1000);
+}
+
+function updateDragHint() {
+  if (!dragHint || !dragHintActive) return;
+  const progress = clamp01((camera.z / minimumZoom() - 1) / .8);
+  const remaining = 1 - progress;
+  dragHint.style.setProperty('--hint-opacity', remaining.toFixed(3));
+  dragHint.style.setProperty('--hint-blur', (9 * remaining).toFixed(2) + 'px');
+  if (progress >= .999) {
+    dragHintActive = false;
+    dragHint.classList.remove('is-visible');
+    dragHint.style.removeProperty('--hint-opacity');
+    dragHint.style.removeProperty('--hint-blur');
+  }
 }
 
 function buildSpatialGrid() {
@@ -117,7 +128,11 @@ function setHeaderOpacity(value) {
 // Keep one world coordinate beside the spawn area, just like the photographs.
 function updateHomeHeader() {
   const pose = homePresence(camera, minimumZoom(), headerAnchor, pivot);
-  header.style.transform = 'translate3d(' + pose.x.toFixed(3) + 'px,' + pose.top.toFixed(3) + 'px,0) scale(' + (pose.scale * 1.35).toFixed(6) + ')';
+  const blend = headerReentered ? pose.opacity : 0;
+  const x = mix(pose.x, size.w * .30, blend);
+  const top = mix(pose.top, size.h * .42, blend);
+  const scale = pose.scale * mix(1, 1.35, blend);
+  header.style.transform = 'translate3d(' + x.toFixed(3) + 'px,' + top.toFixed(3) + 'px,0) scale(' + scale.toFixed(6) + ')';
   setHeaderOpacity(pose.opacity);
 }
 
@@ -175,6 +190,7 @@ function paintCamera() {
   plane.style.transform = 'translate3d(' + (-camera.x * camera.z).toFixed(3) + 'px,' + (pivot.y - camera.y * camera.z).toFixed(3) + 'px,0) scale(' + camera.z.toFixed(6) + ')';
   updateHitTargets();
   updateHomeHeader();
+  updateDragHint();
   scheduleImageQuality();
 }
 
@@ -204,6 +220,7 @@ function paintLayout(value) {
 }
 
 function finishIntro() {
+  headerReentered = false;
   progress = targetProgress = 1;
   mode = 'explore';
   preset = 'all';
@@ -255,6 +272,7 @@ function moveCamera(next, animate = false) {
 
 function zoom(factor, point = pivot, animate = false) {
   if (mode !== 'explore') return;
+  if (factor > 1 && camera.z <= minimumZoom() * 1.005) headerReentered = true;
   if (factor < 1 && camera.z <= minimumZoom() * 1.005) showDragHint();
   preset = 'custom';
   moveCamera(zoomAt(camera, factor, point, pivot, minimumZoom()), animate);
@@ -264,11 +282,12 @@ function returnHome(event) {
   if (event) event.preventDefault();
   if (dialog.open) closeGallery();
   if (mode === 'intro') advanceIntro(-targetProgress);
-  else { preset = 'home'; moveCamera(homeCamera(), true); }
+  else { headerReentered = false; preset = 'home'; moveCamera(homeCamera(), true); }
 }
 
 function showAll() {
   if (mode !== 'explore') return;
+  headerReentered = false;
   preset = 'all';
   moveCamera(fitCamera(extent, size), true);
 }
@@ -353,6 +372,7 @@ view.addEventListener('pointermove', event => {
     gesture.multi = gesture.moved = true;
     living.clear();
     if (mode === 'explore' && current.distance >= 8 && previous.distance >= 8) {
+      if (current.distance > previous.distance && camera.z <= minimumZoom() * 1.005) headerReentered = true;
       if (current.distance < previous.distance && camera.z <= minimumZoom() * 1.005) showDragHint();
       const z = Math.max(minimumZoom(), Math.min(3, camera.z * current.distance / previous.distance));
       preset = 'custom';
