@@ -33,10 +33,13 @@ html.gallery-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .gallery-rail { scroll-behavior: auto; } }
 @media (prefers-reduced-motion: reduce) { .world-header { transition: none; } }
 
-.world-drag-hint{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(255,255,255,.16);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity 160ms ease,visibility 160ms ease}
-.world-drag-hint.is-visible{opacity:1;visibility:visible}
+.world-drag-hint{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(255,255,255,.16);backdrop-filter:blur(var(--hint-blur,0px));-webkit-backdrop-filter:blur(var(--hint-blur,0px));opacity:var(--hint-opacity,0);visibility:hidden;pointer-events:none;transition:opacity 100ms linear,backdrop-filter 100ms linear,visibility 100ms linear}
+.world-drag-hint.is-visible{visibility:visible}
 .world-drag-hint-label{display:flex;align-items:center;gap:11px;padding:12px 18px;border-radius:999px;background:rgba(255,255,255,.9);color:#222;box-shadow:0 8px 28px rgba(0,0,0,.09);font-family:var(--font);font-size:13px;font-weight:600;letter-spacing:.18em;line-height:1;text-transform:lowercase;transform:translateY(7px) scale(.96);transition:transform 180ms ease}
 .world-drag-hint.is-visible .world-drag-hint-label{transform:translateY(0) scale(1)}
-.world-drag-hint svg{width:18px;height:18px;flex:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;fill:none;animation:drag-around 800ms ease-in-out infinite alternate}
-@keyframes drag-around{to{transform:translate(2px,-2px)}}
+.world-drag-hint svg{width:18px;height:18px;flex:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.world-drag-hint .zoom-mark{animation:hint-zoom 900ms ease-in-out infinite alternate}
+.world-drag-hint .drag-mark{animation:hint-drag 800ms ease-in-out infinite alternate}
+@keyframes hint-zoom{to{transform:scale(1.1)}}
+@keyframes hint-drag{to{transform:translate(2px,-2px)}}
 @media(prefers-reduced-motion:reduce){.world-drag-hint,.world-drag-hint-label{transition:none}.world-drag-hint svg{animation:none}}
