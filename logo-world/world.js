@@ -15,6 +15,10 @@ const header = document.querySelector('.world-header');
 const dialog = document.querySelector('.world-gallery');
 const announcement = document.getElementById('world-announcement');
 const dragHint = document.querySelector('.world-drag-hint');
+const scrollHint = document.createElement('p');
+scrollHint.className = 'world-scroll-hint';
+scrollHint.innerHTML = '<span>scroll down</span><svg aria-hidden="true" viewBox="0 0 16 20" width="12" height="15"><path d="M8 1v17m-5-5 5 5 5-5"/></svg>';
+let scrollHintProgress = 0, scrollHintDismissed = false;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
 const projects = makeProjects(pieces);
@@ -73,6 +77,18 @@ const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, 
 
 function minimumZoom() { return fitCamera(extent, size).z; }
 function introScrollRange() { return size.w < 620 ? SCROLL_FEEL.introMobilePixels : SCROLL_FEEL.introDesktopPixels; }
+
+function updateScrollHint(value) {
+  if (scrollHintDismissed) return;
+  // The opening instruction fades once and stays gone when scrolling back up.
+  scrollHintProgress = Math.max(scrollHintProgress, value);
+  const opacity = 1 - smooth(scrollHintProgress / .08);
+  scrollHint.style.opacity = opacity.toFixed(3);
+  if (opacity === 0) {
+    scrollHintDismissed = true;
+    scrollHint.remove();
+  }
+}
 
 function finishDragHint() {
   dragHintActive = false;
@@ -290,6 +306,7 @@ function paintCamera() {
 }
 
 function paintLayout(value) {
+  updateScrollHint(value);
   const spread = value;
   if (value > .08) warmPreviews(value);
   if (value > .55) living.warm();
@@ -705,6 +722,7 @@ function closeGallery() { gallery?.close(); }
 
 // Keep the header inside the native scroll hit area without changing its pose.
 view.prepend(header);
+view.append(scrollHint);
 const nativeIntro = createNativeIntroScroll({ view,
   onChange(value) {
     if (mode !== 'intro' || dialog.open) return;

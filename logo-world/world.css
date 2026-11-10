@@ -48,3 +48,30 @@ html.gallery-open { overflow: hidden; }
 @keyframes hint-zoom{to{transform:scale(1.1)}}
 @keyframes hint-drag{to{transform:translate(2px,-2px)}}
 @media(prefers-reduced-motion:reduce){.world-drag-hint,.world-drag-hint-label{transition:none}.world-drag-hint svg{animation:none}}
+
+.world-scroll-hint {
+  position: fixed;
+  z-index: 25;
+  left: 50%;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, .94);
+  color: #666;
+  font: 400 11px/1.4 var(--font);
+  letter-spacing: .14em;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.world-scroll-hint svg {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
