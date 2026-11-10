@@ -25,7 +25,9 @@ let camera = { x: 0, y: pivot.y, z: 1 };
 let mode = 'intro';
 let progress = 0, targetProgress = 0, introFrame = 0, lastIntroTime = 0;
 let cameraFrame = 0, resizeFrame = 0, navigationReadyAt = 0;
-let dragHintActive = false, headerReentered = false;
+let dragHintActive = false, dragHintShown = false, dragHintUsedZoom = false, dragHintUsedDrag = false, headerReentered = false;
+let dragHintConsumed = false;
+try { dragHintConsumed = window.sessionStorage.getItem('portfolio-zoom-drag-hint-used') === '1'; } catch {}
 const worldCellSize = 512;
 let spatialGrid = null;
 const renderedItems = new Set();
@@ -34,7 +36,7 @@ let preset = 'home';
 let startingBoxes = [];
 let headerHeight = 115, previousHeaderOpacity = -1;
 let paintFrame = 0, qualityTimer = 0, layoutWidth = 0;
-let headerAnchor = homeAnchor(size), expandedHeaderAnchor = { x: 0, y: 0 }, pendingMeasure = false;
+let headerAnchor = homeAnchor(size), expandedHeaderAnchor = { x: 0, y: 0 }, expandedHeaderWorldScale = 1, pendingMeasure = false;
 
 const items = projects.flatMap(project => project.items.map(item => {
   const element = item.photoIndex === 0 ? sourceCovers[project.index].cloneNode(true) : document.createElement('button');
@@ -57,9 +59,28 @@ const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, 
 
 function minimumZoom() { return fitCamera(extent, size).z; }
 
+function finishDragHint() {
+  dragHintActive = false;
+  dragHint?.classList.remove('is-visible');
+  dragHint?.style.removeProperty('--hint-opacity');
+  dragHint?.style.removeProperty('--hint-blur');
+}
+
+function markDragHintAction(action) {
+  if (!dragHintShown || dragHintConsumed) return;
+  if (action === 'zoom') dragHintUsedZoom = true;
+  if (action === 'drag') dragHintUsedDrag = true;
+  if (dragHintUsedZoom && dragHintUsedDrag) {
+    dragHintConsumed = true;
+    try { window.sessionStorage.setItem('portfolio-zoom-drag-hint-used', '1'); } catch {}
+    if (dragHintActive) finishDragHint();
+  }
+}
+
 function showDragHint() {
-  if (!dragHint || dialog.open || dragHintActive) return;
+  if (!dragHint || dialog.open || dragHintActive || dragHintConsumed) return;
   dragHintActive = true;
+  dragHintShown = true;
   dragHint.style.setProperty('--hint-opacity', '1');
   dragHint.style.setProperty('--hint-blur', '9px');
   dragHint.classList.add('is-visible');
@@ -71,12 +92,7 @@ function updateDragHint() {
   const remaining = 1 - progress;
   dragHint.style.setProperty('--hint-opacity', remaining.toFixed(3));
   dragHint.style.setProperty('--hint-blur', (9 * remaining).toFixed(2) + 'px');
-  if (progress >= .999) {
-    dragHintActive = false;
-    dragHint.classList.remove('is-visible');
-    dragHint.style.removeProperty('--hint-opacity');
-    dragHint.style.removeProperty('--hint-blur');
-  }
+  if (progress >= .999) finishDragHint();
 }
 
 function buildSpatialGrid() {
@@ -127,9 +143,16 @@ function setHeaderOpacity(value) {
 
 // Keep one world coordinate beside the spawn area, just like the photographs.
 function captureExpandedHeaderAnchor(overview) {
-  const scale = overview.z * 1.35;
-  const screenX = size.w * .484 - header.offsetWidth * scale / 2;
-  const screenY = size.h * .465 - header.offsetHeight * scale / 2;
+  const mobile = size.w < 620;
+  const visual = window.visualViewport;
+  const screenWidth = mobile ? (window.screen.width || size.w) : size.w;
+  const screenHeight = mobile ? (window.screen.height || size.h) : size.h;
+  const centerX = screenWidth * .484 - (mobile ? visual?.offsetLeft || 0 : 0);
+  const centerY = screenHeight * .465 - (mobile ? visual?.offsetTop || 0 : 0);
+  const maxScale = Math.min(screenWidth * .476 * .9 / Math.max(1, header.offsetWidth), screenHeight * .146 * .78 / Math.max(1, header.offsetHeight));
+  expandedHeaderWorldScale = maxScale / overview.z;
+  const screenX = centerX - header.offsetWidth * maxScale / 2;
+  const screenY = centerY - header.offsetHeight * maxScale / 2;
   expandedHeaderAnchor = {
     x: overview.x + (screenX - pivot.x) / overview.z,
     y: overview.y + (screenY - pivot.y) / overview.z
@@ -143,7 +166,7 @@ function updateHomeHeader() {
   const expandedTop = pivot.y + (expandedHeaderAnchor.y - camera.y) * pose.scale;
   const x = mix(pose.x, expandedX, blend);
   const top = mix(pose.top, expandedTop, blend);
-  const scale = pose.scale * mix(1, 1.35, blend);
+  const scale = mix(pose.scale, camera.z * expandedHeaderWorldScale, blend);
   header.style.transform = 'translate3d(' + x.toFixed(3) + 'px,' + top.toFixed(3) + 'px,0) scale(' + scale.toFixed(6) + ')';
   setHeaderOpacity(pose.opacity);
 }
@@ -288,6 +311,7 @@ function moveCamera(next, animate = false) {
 function zoom(factor, point = pivot, animate = false) {
   if (mode !== 'explore') return;
   if (factor > 1 && camera.z <= minimumZoom() * 1.005) headerReentered = true;
+  if (factor > 1) markDragHintAction('zoom');
   if (factor < 1 && camera.z <= minimumZoom() * 1.005) showDragHint();
   preset = 'custom';
   moveCamera(zoomAt(camera, factor, point, pivot, minimumZoom()), animate);
@@ -357,6 +381,7 @@ addEventListener('wheel', event => {
     const dx = (event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX) * factor;
     const dy = (event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY) * factor;
     preset = 'custom';
+    if (dx || dy) markDragHintAction('drag');
     moveCamera({ x: camera.x + dx / camera.z, y: camera.y + dy / camera.z, z: camera.z });
   }
 }, { passive: false });
@@ -392,6 +417,7 @@ view.addEventListener('pointermove', event => {
     living.clear();
     if (mode === 'explore' && current.distance >= 8 && previous.distance >= 8) {
       if (current.distance > previous.distance && camera.z <= minimumZoom() * 1.005) headerReentered = true;
+      if (current.distance > previous.distance) markDragHintAction('zoom');
       if (current.distance < previous.distance && camera.z <= minimumZoom() * 1.005) showDragHint();
       const z = Math.max(minimumZoom(), Math.min(3, camera.z * current.distance / previous.distance));
       preset = 'custom';
@@ -408,6 +434,7 @@ view.addEventListener('pointermove', event => {
       preset = 'custom';
       view.dataset.dragging = 'true';
       if (camera.z <= minimumZoom() * 1.005 && Math.abs(point.y - gesture.last.y) > .1) showDragHint();
+      markDragHintAction('drag');
       moveCamera({ x: camera.x - (point.x - gesture.last.x) / camera.z, y: camera.y - (point.y - gesture.last.y) / camera.z, z: camera.z });
     }
   }
