@@ -10,6 +10,7 @@ const measurement = document.querySelector('.world-measurement');
 const header = document.querySelector('.world-header');
 const dialog = document.querySelector('.world-gallery');
 const announcement = document.getElementById('world-announcement');
+const dragHint = document.querySelector('.world-drag-hint');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
 const projects = makeProjects(pieces);
@@ -24,6 +25,11 @@ let camera = { x: 0, y: pivot.y, z: 1 };
 let mode = 'intro';
 let progress = 0, targetProgress = 0, introFrame = 0, lastIntroTime = 0;
 let cameraFrame = 0, resizeFrame = 0, navigationReadyAt = 0;
+let dragHintTimer = 0, lastDragHint = -Infinity;
+const worldCellSize = 512;
+let spatialGrid = null;
+const renderedItems = new Set();
+const candidateItems = new Set();
 let preset = 'home';
 let startingBoxes = [];
 let headerHeight = 115, previousHeaderOpacity = -1;
@@ -50,6 +56,49 @@ const items = projects.flatMap(project => project.items.map(item => {
 const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && !dialog.open, reduced: () => reduce.matches, onDetail: scheduleImageQuality });
 
 function minimumZoom() { return fitCamera(extent, size).z; }
+
+function showDragHint() {
+  const now = performance.now();
+  if (!dragHint || dialog.open || now - lastDragHint < 1300) return;
+  lastDragHint = now;
+  clearTimeout(dragHintTimer);
+  dragHint.classList.remove('is-visible');
+  void dragHint.offsetWidth;
+  dragHint.classList.add('is-visible');
+  dragHintTimer = setTimeout(() => dragHint.classList.remove('is-visible'), 1000);
+}
+
+function buildSpatialGrid() {
+  spatialGrid = new Map();
+  for (const item of items) {
+    const left = Math.floor(item.x / worldCellSize);
+    const right = Math.floor((item.x + item.width) / worldCellSize);
+    const top = Math.floor(item.y / worldCellSize);
+    const bottom = Math.floor((item.y + item.height) / worldCellSize);
+    for (let x = left; x <= right; x++) for (let y = top; y <= bottom; y++) {
+      const key = x + ',' + y;
+      if (!spatialGrid.has(key)) spatialGrid.set(key, []);
+      spatialGrid.get(key).push(item);
+    }
+  }
+}
+
+function collectVisibleCandidates() {
+  candidateItems.clear();
+  if (!spatialGrid) return items;
+  const margin = 96 / camera.z;
+  const left = camera.x - pivot.x / camera.z - margin;
+  const right = camera.x + (size.w - pivot.x) / camera.z + margin;
+  const top = camera.y - pivot.y / camera.z - margin;
+  const bottom = camera.y + (size.h - pivot.y) / camera.z + margin;
+  for (let x = Math.floor(left / worldCellSize); x <= Math.floor(right / worldCellSize); x++) {
+    for (let y = Math.floor(top / worldCellSize); y <= Math.floor(bottom / worldCellSize); y++) {
+      const cell = spatialGrid.get(x + ',' + y);
+      if (cell) for (const item of cell) candidateItems.add(item);
+    }
+  }
+  return candidateItems;
+}
 function homeCamera() {
   const overviewZoom = size.w < 620 ? Math.max(.22, Math.min(.4, size.w / 1250)) : Math.min(.65, size.w / 2000);
   const z = Math.min(overviewZoom, Math.max(.2, (size.h - size.top - 52) / 430));
@@ -68,7 +117,7 @@ function setHeaderOpacity(value) {
 // Keep one world coordinate beside the spawn area, just like the photographs.
 function updateHomeHeader() {
   const pose = homePresence(camera, minimumZoom(), headerAnchor, pivot);
-  header.style.transform = 'translate3d(' + pose.x.toFixed(3) + 'px,' + pose.top.toFixed(3) + 'px,0) scale(' + pose.scale.toFixed(6) + ')';
+  header.style.transform = 'translate3d(' + pose.x.toFixed(3) + 'px,' + pose.top.toFixed(3) + 'px,0) scale(' + (pose.scale * 1.35).toFixed(6) + ')';
   setHeaderOpacity(pose.opacity);
 }
 
@@ -93,10 +142,20 @@ function scheduleImageQuality() {
 }
 
 function updateHitTargets() {
-  for (const item of items) {
+  const candidates = collectVisibleCandidates();
+  if (spatialGrid) for (const item of renderedItems) if (!candidateItems.has(item)) {
+    item.element.hidden = true;
+    item.rendered = false;
+    item.visible = false;
+    item.element.setAttribute('aria-hidden', 'true');
+    item.element.tabIndex = -1;
+    renderedItems.delete(item);
+  }
+  for (const item of candidates) {
     const box=screenBox(item,camera,pivot);
     const rendered=item.alpha>.001 && inViewport(box,size,96);
     if(item.rendered!==rendered) {item.element.hidden=!rendered;item.rendered=rendered;}
+    if (rendered) renderedItems.add(item); else renderedItems.delete(item);
     if(rendered && item.layoutDirty) {
       const opacity=item.alpha.toFixed(4);
       if(item.lastOpacity!==opacity) {item.element.style.opacity=opacity;item.lastOpacity=opacity;}
@@ -114,7 +173,6 @@ function updateHitTargets() {
 
 function paintCamera() {
   plane.style.transform = 'translate3d(' + (-camera.x * camera.z).toFixed(3) + 'px,' + (pivot.y - camera.y * camera.z).toFixed(3) + 'px,0) scale(' + camera.z.toFixed(6) + ')';
-  plane.dataset.camera = JSON.stringify(camera);
   updateHitTargets();
   updateHomeHeader();
   scheduleImageQuality();
@@ -151,6 +209,7 @@ function finishIntro() {
   preset = 'all';
   camera = fitCamera(extent, size);
   paintLayout(1);
+  buildSpatialGrid();
   view.dataset.mode = mode;
   announcement.textContent = 'Portfolio expanded.';
   navigationReadyAt = performance.now() + 220;
@@ -196,6 +255,7 @@ function moveCamera(next, animate = false) {
 
 function zoom(factor, point = pivot, animate = false) {
   if (mode !== 'explore') return;
+  if (factor < 1 && camera.z <= minimumZoom() * 1.005) showDragHint();
   preset = 'custom';
   moveCamera(zoomAt(camera, factor, point, pivot, minimumZoom()), animate);
 }
@@ -293,6 +353,7 @@ view.addEventListener('pointermove', event => {
     gesture.multi = gesture.moved = true;
     living.clear();
     if (mode === 'explore' && current.distance >= 8 && previous.distance >= 8) {
+      if (current.distance < previous.distance && camera.z <= minimumZoom() * 1.005) showDragHint();
       const z = Math.max(minimumZoom(), Math.min(3, camera.z * current.distance / previous.distance));
       preset = 'custom';
       moveCamera({ x: camera.x + (previous.x - pivot.x) / camera.z - (current.x - pivot.x) / z, y: camera.y + (previous.y - pivot.y) / camera.z - (current.y - pivot.y) / z, z });
@@ -328,8 +389,7 @@ function releasePointer(event, cancelled = false) {
   if (!cancelled && previous && !previous.moved && !previous.multi) {
     if (previous.item) {
       const item = items.find(item => item.element === previous.item);
-      if (mode === 'explore' && previous.pointerType === 'touch' && previous.selectedAtStart !== item) living.emphasize(item, true);
-      else openGallery(Number(previous.item.dataset.piece), Number(previous.item.dataset.photo), previous.item);
+      openGallery(Number(previous.item.dataset.piece), Number(previous.item.dataset.photo), previous.item);
     } else living.clear();
   }
 }
