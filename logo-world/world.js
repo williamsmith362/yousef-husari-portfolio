@@ -4,7 +4,7 @@ import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
 import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=locked-board-1';
 import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=locked-board-1';
-import { SCROLL_FEEL, damp, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=chat-scroll-1';
+import { SCROLL_FEEL, inputTime, damp, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=momentum-images-1';
 
 const view = document.querySelector('.world-viewport');
@@ -314,7 +314,7 @@ function animateIntro(time) {
     progress = targetProgress = clamp01(next);
     introVelocity = step.velocity;
     introGlideTime += elapsed;
-    if (next <= 0 || next >= 1 || Math.abs(introVelocity) < .004 || introGlideTime >= SCROLL_FEEL.maxGlideMs) introVelocity = 0;
+    if (next <= 0 || next >= 1 || Math.abs(introVelocity)*introScrollRange() < SCROLL_FEEL.stopSpeed || introGlideTime >= SCROLL_FEEL.maxGlideMs) introVelocity = 0;
   } else {
     progress = reduce.matches ? targetProgress : damp(progress, targetProgress, elapsed, introResponse);
     if (Math.abs(progress - targetProgress) < .00005) progress = targetProgress;
@@ -342,7 +342,7 @@ function advanceIntro(delta, { direct = false, response = 80 } = {}) {
 
 function startIntroGlide(velocity) {
   velocity *= SCROLL_FEEL.flickGain;
-  if (mode !== 'intro' || reduce.matches || Math.abs(velocity) < .025) return;
+  if (mode !== 'intro' || reduce.matches || Math.abs(velocity)*introScrollRange() < SCROLL_FEEL.minGlideSpeed) return;
   stopIntro(); introVelocity = velocity;
   lastIntroTime = performance.now();
   introFrame = requestAnimationFrame(animateIntro);
@@ -370,7 +370,7 @@ function animateCamera(time) {
     const bounded = clampCamera(next, extent, size, minimumZoom());
     cameraVelocity = { x: Math.abs(next.x-bounded.x) > .0001 ? 0 : x.velocity, y: Math.abs(next.y-bounded.y) > .0001 ? 0 : y.velocity };
     camera = bounded; cameraGlideTime += elapsed;
-    if (Math.hypot(cameraVelocity.x,cameraVelocity.y) < 8 || cameraGlideTime >= SCROLL_FEEL.maxGlideMs) cameraVelocity = { x: 0, y: 0 };
+    if (Math.hypot(cameraVelocity.x,cameraVelocity.y) < SCROLL_FEEL.stopSpeed || cameraGlideTime >= SCROLL_FEEL.maxGlideMs) cameraVelocity = { x: 0, y: 0 };
   }
   paintCamera();
   if (cameraTarget || cameraVelocity.x || cameraVelocity.y) cameraFrame = requestAnimationFrame(animateCamera);
@@ -391,7 +391,7 @@ function moveCamera(next, animate = false, response = 80, input = 'program') {
 
 function startCameraGlide(velocity) {
   velocity = { x: velocity.x * SCROLL_FEEL.flickGain, y: velocity.y * SCROLL_FEEL.flickGain };
-  if (mode !== 'explore' || reduce.matches || Math.hypot(velocity.x,velocity.y) < 45) return;
+  if (mode !== 'explore' || reduce.matches || Math.hypot(velocity.x,velocity.y) < SCROLL_FEEL.minGlideSpeed) return;
   stopCamera(); living.clear(true); cameraVelocity = velocity;
   lastCameraTime = performance.now();
   cameraFrame = requestAnimationFrame(animateCamera);
@@ -421,14 +421,15 @@ function showAll() {
 
 function measure(remeasureLayout = true) {
   if(dialog.open) {pendingMeasure=true;return;}
+  const layoutChanged = remeasureLayout || !startingBoxes.length;
+  const widthChanged = Math.abs(innerWidth-layoutWidth) > 1 || !startingBoxes.length;
+  const previousPivot = pivot;
   living.clear(true);
-  stopCamera();
-  introVelocity = 0;
+  if (widthChanged) { stopCamera(); introVelocity = 0; }
   headerHeight = header.offsetHeight;
   headerWidth = header.offsetWidth;
   size = { w: innerWidth, h: innerHeight, top: 0, fitTop: Math.ceil(measurement.querySelector('.site-header').offsetHeight + 16) };
   pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
-  const layoutChanged = remeasureLayout || !startingBoxes.length;
   if (layoutChanged) {
     const grid = measurement.querySelector('.masonry-grid');
     for (const tile of grid.children) tile.style.gridRowEnd = 'span ' + Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height + parseFloat(getComputedStyle(tile).paddingBottom));
@@ -441,9 +442,19 @@ function measure(remeasureLayout = true) {
     layoutWidth = innerWidth;
   }
   if (mode === 'explore') {
-    if (preset === 'home') camera = homeCamera();
-    else if (preset === 'all') camera = fitCamera(extent, size);
-    else camera = clampCamera(camera, extent, size, minimumZoom());
+    if (!widthChanged) {
+      const shift = pivot.y - previousPivot.y;
+      camera = { ...camera, y: camera.y + shift / camera.z };
+      if (cameraTarget) cameraTarget = { ...cameraTarget, y: cameraTarget.y + shift / cameraTarget.z };
+    }
+    const destination = preset === 'home' ? homeCamera() : preset === 'all' ? fitCamera(extent,size) : null;
+    if (destination) {
+      if (cameraTarget) cameraTarget = destination;
+      else camera = destination;
+    } else {
+      camera = clampCamera(camera, extent, size, minimumZoom());
+      if (cameraTarget) cameraTarget = clampCamera(cameraTarget, extent, size, minimumZoom());
+    }
   }
   if (mode === 'explore' && !layoutChanged) paintCamera();
   else paintLayout(progress);
@@ -485,7 +496,7 @@ view.addEventListener('pointerdown', event => {
   stopCamera();
   if (mode === 'intro') stopIntro();
   const point = { x: event.clientX, y: event.clientY };
-  flickTracker.reset(point, performance.now());
+  flickTracker.reset(point, inputTime(event));
   points.set(event.pointerId, point);
   view.setPointerCapture(event.pointerId);
   if (points.size === 1) {
@@ -517,7 +528,9 @@ view.addEventListener('pointermove', event => {
     gesture.pair = current;
     return;
   }
-  flickTracker.sample(point, performance.now());
+  const samples = event.getCoalescedEvents?.();
+  if (samples?.length) for (const sample of samples) flickTracker.sample({ x: sample.clientX, y: sample.clientY }, inputTime(sample));
+  flickTracker.sample(point, inputTime(event));
   if (Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) > 6) gesture.moved = true;
   if (gesture.moved) {
     living.clear();
@@ -536,7 +549,9 @@ function releasePointer(event, cancelled = false) {
   if (!points.has(event.pointerId)) return;
   if (cancelled) { living.clear(true); stopCamera(); stopIntro(); }
   const previous = gesture;
-  const velocity = flickTracker.velocity(performance.now());
+  const releaseTime = inputTime(event);
+  if (!cancelled && previous && !previous.multi && Number.isFinite(event.clientX) && Number.isFinite(event.clientY) && (event.clientX !== previous.last.x || event.clientY !== previous.last.y)) flickTracker.sample({ x: event.clientX, y: event.clientY }, releaseTime);
+  const velocity = flickTracker.velocity(releaseTime);
   points.delete(event.pointerId);
   if (view.hasPointerCapture(event.pointerId)) view.releasePointerCapture(event.pointerId);
   if (points.size && gesture) {
@@ -559,7 +574,10 @@ function releasePointer(event, cancelled = false) {
 }
 view.addEventListener('pointerup', event => releasePointer(event));
 view.addEventListener('pointercancel', event => releasePointer(event, true));
-view.addEventListener('lostpointercapture', event => { if (points.has(event.pointerId)) releasePointer(event, true); });
+// Capture can be released before the final up event. A genuine cancel still
+// stops motion, while a normal release is also observed outside the canvas.
+addEventListener('pointerup', event => releasePointer(event));
+addEventListener('pointercancel', event => releasePointer(event, true));
 view.addEventListener('pointerleave', () => { if (!points.size) living.clear(); });
 view.addEventListener('focusin', event => { const item = items.find(item => item.element === event.target); if (item && event.target.matches(':focus-visible')) living.emphasize(item); });
 view.addEventListener('focusout', event => { if (!event.relatedTarget?.closest('.world-item')) living.clear(); });

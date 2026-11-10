@@ -6,10 +6,12 @@ export const SCROLL_FEEL = Object.freeze({
   trackpadResponse: 40,
   introMobilePixels: 3200,
   introDesktopPixels: 3500,
-  flickGain: .62,
-  maxFlickSpeed: 2400,
-  decayMs: 135,
-  maxGlideMs: 650
+  flickGain: .72,
+  maxFlickSpeed: 2000,
+  decayMs: 240,
+  minGlideSpeed: 30,
+  stopSpeed: 8,
+  maxGlideMs: 1250
 });
 
 export function damp(value, target, elapsedMs, responseMs = 80) {
@@ -30,7 +32,13 @@ export function dampCamera(camera, target, elapsedMs, responseMs = 80) {
   return { x: camera.x + (target.x - camera.x) * travel, y: camera.y + (target.y - camera.y) * travel, z };
 }
 
-export function createVelocityTracker({ windowMs = 80, staleMs = 70, maxSpeed = SCROLL_FEEL.maxFlickSpeed } = {}) {
+export function inputTime(event, now = performance.now(), origin = performance.timeOrigin) {
+  let time = Number(event?.timeStamp);
+  if (time > 1e12 && Number.isFinite(origin)) time -= origin;
+  return Number.isFinite(time) && time >= 0 && Math.abs(time-now) < 60000 ? time : now;
+}
+
+export function createVelocityTracker({ windowMs = 80, staleMs = 110, maxSpeed = SCROLL_FEEL.maxFlickSpeed } = {}) {
   let samples = [];
   return {
     reset(point, time) { samples = point ? [{ ...point, time }] : []; },
@@ -42,7 +50,7 @@ export function createVelocityTracker({ windowMs = 80, staleMs = 70, maxSpeed = 
     velocity(time) {
       if (samples.length < 2 || time - samples.at(-1).time > staleMs) return { x: 0, y: 0 };
       const first = samples[0], last = samples.at(-1), elapsed = last.time - first.time;
-      if (elapsed < 10) return { x: 0, y: 0 };
+      if (elapsed < 4) return { x: 0, y: 0 };
       let x = (last.x - first.x) * 1000 / elapsed, y = (last.y - first.y) * 1000 / elapsed;
       const speed = Math.hypot(x, y), limit = Math.min(1, maxSpeed / Math.max(1, speed));
       x *= limit; y *= limit;
