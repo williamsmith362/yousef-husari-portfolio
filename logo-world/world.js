@@ -47,7 +47,7 @@ let startingBoxes = [];
 let headerHeight = 115, headerWidth = 0, previousHeaderOpacity = -1;
 let paintFrame = 0, qualityTimer = 0, layoutWidth = 0;
 let headerAnchor = homeAnchor(size), pendingMeasure = false;
-let previewsWarmed = false;
+let previewWarmProgress = 0;
 const previewQueue = createImageQueue({ concurrency: innerWidth < 620 ? 4 : 6 });
 const detailQueue = createImageQueue({ concurrency: innerWidth < 620 ? 2 : 4 });
 
@@ -182,16 +182,38 @@ function requestPreview(item, priority = 50) {
   });
 }
 
-function warmPreviews() {
-  if (previewsWarmed) return;
-  previewsWarmed = true;
-  for (const item of items) requestPreview(item, 50 + item.photoIndex);
+function warmPreviews(value) {
+  // Prepare the next part of the reveal, rather than decoding the whole board.
+  const ahead = Math.min(1, (Math.floor(value * 10) + 2) / 10);
+  if (ahead <= previewWarmProgress) return;
+  previewWarmProgress = ahead;
+  const future = revealCamera(ahead, pivot, fitCamera(extent, size));
+  for (const item of items) {
+    if (item.imageLevel) continue;
+    const start = item.revealStart;
+    if (item.photoIndex && ahead <= .16 + start.phase * 2 + item.photoIndex * .005) continue;
+    const width = mix(start.width, item.w, ahead);
+    const box = screenBox({
+      x: mix(start.x, item.project.x + item.xLocal, ahead),
+      y: mix(start.y, item.project.y + item.yLocal, ahead),
+      width, height: width * item.h / item.w
+    }, future, pivot);
+    if (inViewport(box, size, 140)) requestPreview(item, 20 + item.photoIndex);
+  }
+}
+
+function detailPixels(item) {
+  return Math.max(item.width, item.height) * camera.z * (item.lift?.scale || 1) * Math.min(2, devicePixelRatio || 1);
+}
+
+function needsDetail(item) {
+  return item.visible && detailPixels(item) > 200;
 }
 
 function trimDetailImages() {
   const limit = size.w < 620 ? 12 : 28;
   const detailed = items.filter(item => item.imageLevel === 'full').sort((a,b) => Number(b.rendered)-Number(a.rendered) || b.detailUsedAt-a.detailUsedAt);
-  for (const item of detailed.slice(limit)) if (!item.rendered && item.previewElement) {
+  for (const [index, item] of detailed.entries()) if ((detailPixels(item) <= 200 || (!item.rendered && index >= limit)) && item.previewElement) {
     const full = item.imageElement;
     full.replaceWith(item.previewElement); full.removeAttribute('src');
     item.imageElement = item.previewElement; item.imageLevel = 'preview';
@@ -201,13 +223,12 @@ function trimDetailImages() {
 function refreshImageQuality() {
   if (dialog.open || cameraFrame || introFrame || nativeIntro.scrolling) return;
   if (points.size) { scheduleImageQuality(); return; }
-  const density = Math.min(2, devicePixelRatio || 1);
+  detailQueue.resume();
   for (const item of items) {
-    const needsDetail = item.visible && Math.max(item.width, item.height) * camera.z * (item.lift?.scale || 1) * density > 200;
-    if (!needsDetail || item.imageLevel !== 'preview') continue;
+    if (!needsDetail(item) || item.imageLevel !== 'preview') continue;
     detailQueue.request(item, '/pieces/' + item.image.file + '.webp', {
       priority: Math.max(1,1000-Math.max(item.width,item.height)*camera.z),
-      wanted: () => !dialog.open && item.visible && !cameraFrame && !introFrame && !points.size,
+      wanted: () => !dialog.open && needsDetail(item) && !cameraFrame && !introFrame && !nativeIntro.scrolling && !points.size,
       ready(image) {
         item.imageElement = replaceDecodedImage(item.imageElement, image, { fade: false });
         item.imageLevel = 'full'; item.detailUsedAt = performance.now();
@@ -238,7 +259,8 @@ function updateHitTargets() {
     const rendered=item.alpha>.001 && inViewport(box,size,96);
     if(item.rendered!==rendered) {item.element.hidden=!rendered;item.rendered=rendered;}
     if (rendered) {
-      requestPreview(item, (item.photoIndex ? 2 : 0) + Math.hypot(box.x+box.w/2-pivot.x,box.y+box.h/2-pivot.y)/Math.max(size.w,size.h));
+      const priority = item.project.index === 0 && item.photoIndex === 0 ? -1 : (item.photoIndex ? 2 : 0) + Math.hypot(box.x+box.w/2-pivot.x,box.y+box.h/2-pivot.y)/Math.max(size.w,size.h);
+      requestPreview(item, priority);
       if (item.imageLevel === 'full') item.detailUsedAt = performance.now();
     }
     if (rendered) renderedItems.add(item); else renderedItems.delete(item);
@@ -258,6 +280,8 @@ function updateHitTargets() {
 }
 
 function paintCamera() {
+  // Keep expensive full-size decodes and replacements out of moving frames.
+  detailQueue.pause();
   plane.style.transform = 'translate3d(' + (-camera.x * camera.z).toFixed(3) + 'px,' + (pivot.y - camera.y * camera.z).toFixed(3) + 'px,0) scale(' + camera.z.toFixed(6) + ')';
   updateHitTargets();
   updateHomeHeader();
@@ -267,21 +291,19 @@ function paintCamera() {
 
 function paintLayout(value) {
   const spread = value;
-  if (value > .08) warmPreviews();
+  if (value > .08) warmPreviews(value);
   if (value > .55) living.warm();
   for (const item of items) {
     const start = startingBoxes[item.project.index];
     const isCover = item.photoIndex === 0;
-    const fromWidth = isCover ? start.w : start.w * .45;
-    const fromX = isCover ? start.x : start.x + (start.w - fromWidth) / 2 + (item.photoIndex % 2 ? 1 : -1) * start.w * .65;
-    const fromY = isCover ? start.y : start.y + start.h * .3 + Math.floor(item.photoIndex / 2) * start.h * .12;
-    item.x = mix(fromX, item.project.x + item.xLocal, spread);
-    item.y = mix(fromY, item.project.y + item.yLocal, spread);
-    item.width = mix(fromWidth, item.w, spread);
+    const from = item.revealStart;
+    item.x = mix(from.x, item.project.x + item.xLocal, spread);
+    item.y = mix(from.y, item.project.y + item.yLocal, spread);
+    item.width = mix(from.width, item.w, spread);
     item.height = item.width * item.h / item.w;
     item.alpha = isCover
-      ? (start.y < size.h + 100 ? 1 : smooth((value - .08 - item.project.index / projects.length * .1) / .36))
-      : smooth((value - .16 - item.project.index / projects.length * .2 - item.photoIndex * .005) / .34);
+      ? (start.y < size.h + 100 ? 1 : smooth((value - .08 - from.phase) / .36))
+      : smooth((value - .16 - from.phase * 2 - item.photoIndex * .005) / .34);
     item.layoutDirty=true;
   }
   if (mode === 'intro') {
@@ -437,7 +459,10 @@ function measure(remeasureLayout = true) {
   if (mode === 'intro') nativeIntro.resize(introScrollRange(), progress);
   if (layoutChanged) {
     const grid = measurement.querySelector('.masonry-grid');
-    for (const tile of grid.children) tile.style.gridRowEnd = 'span ' + Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height + parseFloat(getComputedStyle(tile).paddingBottom));
+    const tiles = [...grid.children];
+    // Batch reads before writes so each tile does not force another layout.
+    const rows = tiles.map(tile => Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height + parseFloat(getComputedStyle(tile).paddingBottom)));
+    tiles.forEach((tile, index) => { tile.style.gridRowEnd = 'span ' + rows[index]; });
     grid.dataset.masonry = 'true';
     startingBoxes = sourceCovers.map(tile => {
       const box = tile.querySelector('.product-photo').getBoundingClientRect();
@@ -445,6 +470,16 @@ function measure(remeasureLayout = true) {
     });
     headerAnchor = homeAnchor(size);
     layoutWidth = innerWidth;
+    previewWarmProgress = 0;
+    for (const item of items) {
+      const start = startingBoxes[item.project.index];
+      const cover = item.photoIndex === 0, width = cover ? start.w : start.w * .45;
+      item.revealStart = {
+        x: cover ? start.x : start.x + (start.w - width) / 2 + (item.photoIndex % 2 ? 1 : -1) * start.w * .65,
+        y: cover ? start.y : start.y + start.h * .3 + Math.floor(item.photoIndex / 2) * start.h * .12,
+        width, phase: item.project.index / projects.length * .1
+      };
+    }
   }
   if (mode === 'explore') {
     if (!widthChanged) {
@@ -651,18 +686,22 @@ addEventListener('keydown', event => {
   else if (event.key === 'Home') { event.preventDefault(); returnHome(); }
 });
 
-const gallery = mountGallery({ pieces, onOpen() {
+let gallery = null;
+function getGallery() {
+  if (!gallery) gallery = mountGallery({ pieces, onOpen() {
   stopIntro(); stopCamera(); living.clear(true);
   nativeIntro.pause();
   previewQueue.pause(); detailQueue.pause(); detailQueue.clear();
 }, onClose() {
   nativeIntro.resume(progress);
-  previewQueue.resume(); detailQueue.resume(); requestCameraPaint();
+  previewQueue.resume(); requestCameraPaint();
   if(pendingMeasure) {pendingMeasure=false;measure(Math.abs(innerWidth-layoutWidth)>1);}
   scheduleImageQuality();
 } });
-function openGallery(pieceIndex, photoIndex, trigger) { gallery.open(pieceIndex, photoIndex, trigger); }
-function closeGallery() { gallery.close(); }
+  return gallery;
+}
+function openGallery(pieceIndex, photoIndex, trigger) { getGallery().open(pieceIndex, photoIndex, trigger); }
+function closeGallery() { gallery?.close(); }
 
 // Keep the header inside the native scroll hit area without changing its pose.
 view.prepend(header);

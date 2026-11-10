@@ -22,9 +22,15 @@ function requestCover(tile,priority=1) {
   });
 }
 let pendingMeasure=false;
-const gallery=mountGallery({pieces,onOpen(){viewerOpen=true;coverQueue.pause();},onClose(){viewerOpen=false;coverQueue.resume();if(pendingMeasure){pendingMeasure=false;measure();}}});
-for(const tile of covers) tile.addEventListener('click',()=>gallery.open(Number(tile.dataset.piece),0,tile));
-gallery.dialog.querySelector('[data-home]').addEventListener('click',event=>{event.preventDefault();gallery.close();window.scrollTo({top:0,behavior:'instant'});});
+let gallery=null;
+function getGallery() {
+  if(!gallery) {
+    gallery=mountGallery({pieces,onOpen(){viewerOpen=true;coverQueue.pause();},onClose(){viewerOpen=false;coverQueue.resume();if(pendingMeasure){pendingMeasure=false;measure();}}});
+    gallery.dialog.querySelector('[data-home]').addEventListener('click',event=>{event.preventDefault();gallery.close();window.scrollTo({top:0,behavior:'instant'});});
+  }
+  return gallery;
+}
+for(const tile of covers) tile.addEventListener('click',()=>getGallery().open(Number(tile.dataset.piece),0,tile));
 const grid=document.querySelector('.masonry-grid');
 const order=new Map(orderCatalogProjects(pieces).map((piece,index)=>[piece.id,index]));
 grid.replaceChildren(...[...grid.children].sort((a,b)=>order.get(pieces[Number(a.dataset.piece)].id)-order.get(pieces[Number(b.dataset.piece)].id)));
@@ -36,9 +42,11 @@ requestCover(covers[0],0);
 document.addEventListener('visibilitychange',()=>{if(document.hidden) coverQueue.pause();else if(!viewerOpen) coverQueue.resume();});
 let width=0, frame=0;
 function measure() {
-  if(gallery.dialog.open){pendingMeasure=true;return;}
+  if(viewerOpen){pendingMeasure=true;return;}
   width=innerWidth;
-  for(const tile of grid.children) tile.style.gridRowEnd='span '+Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height+parseFloat(getComputedStyle(tile).paddingBottom));
+  const tiles=[...grid.children];
+  const rows=tiles.map(tile=>Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height+parseFloat(getComputedStyle(tile).paddingBottom)));
+  tiles.forEach((tile,index)=>{tile.style.gridRowEnd='span '+rows[index];});
   grid.dataset.masonry='true';
 }
 addEventListener('resize',()=>{if(innerWidth!==width){cancelAnimationFrame(frame);frame=requestAnimationFrame(measure);}});
