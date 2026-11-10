@@ -1,8 +1,9 @@
 import { photoFrame } from './photos.mjs';
-import { mountGallery } from './gallery.mjs?v=20261109';
-import { createLivingLogo } from './living-logo.mjs';
+import { mountGallery } from './gallery.mjs?v=grouped-trousers-1';
+import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
+import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=locked-board-1';
 import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
-import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs';
+import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=locked-board-1';
 
 const view = document.querySelector('.world-viewport');
 const plane = document.querySelector('.world-plane');
@@ -25,7 +26,7 @@ let camera = { x: 0, y: pivot.y, z: 1 };
 let mode = 'intro';
 let progress = 0, targetProgress = 0, introFrame = 0, lastIntroTime = 0;
 let cameraFrame = 0, resizeFrame = 0, navigationReadyAt = 0;
-let dragHintActive = false, dragHintShown = false, dragHintUsedZoom = false, dragHintUsedDrag = false, headerReentered = false;
+let dragHintActive = false, dragHintShown = false, dragHintUsedZoom = false, dragHintUsedDrag = false;
 let dragHintConsumed = false;
 try { dragHintConsumed = window.sessionStorage.getItem('portfolio-zoom-drag-hint-used') === '1'; } catch {}
 const worldCellSize = 512;
@@ -34,9 +35,9 @@ const renderedItems = new Set();
 const candidateItems = new Set();
 let preset = 'home';
 let startingBoxes = [];
-let headerHeight = 115, previousHeaderOpacity = -1;
+let headerHeight = 115, headerWidth = 0, previousHeaderOpacity = -1;
 let paintFrame = 0, qualityTimer = 0, layoutWidth = 0;
-let headerAnchor = homeAnchor(size), expandedHeaderAnchor = { x: 0, y: 0 }, expandedHeaderWorldScale = 1, pendingMeasure = false;
+let headerAnchor = homeAnchor(size), pendingMeasure = false;
 
 const items = projects.flatMap(project => project.items.map(item => {
   const element = item.photoIndex === 0 ? sourceCovers[project.index].cloneNode(true) : document.createElement('button');
@@ -55,7 +56,7 @@ const items = projects.flatMap(project => project.items.map(item => {
   return { imageElement, frame: element.querySelector('.product-photo'), ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
 }));
 
-const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && !dialog.open, reduced: () => reduce.matches, onDetail: scheduleImageQuality });
+const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && !dialog.open, reduced: () => reduce.matches, onDetail: scheduleImageQuality, reservedArea: BOARD_HEADER_AREA });
 
 function minimumZoom() { return fitCamera(extent, size).z; }
 
@@ -142,33 +143,11 @@ function setHeaderOpacity(value) {
 }
 
 // Keep one world coordinate beside the spawn area, just like the photographs.
-function captureExpandedHeaderAnchor(overview) {
-  const mobile = size.w < 620;
-  const visual = window.visualViewport;
-  const screenWidth = mobile ? (window.screen.width || size.w) : size.w;
-  const screenHeight = mobile ? (window.screen.height || size.h) : size.h;
-  const centerX = screenWidth * .484 - (mobile ? visual?.offsetLeft || 0 : 0);
-  const centerY = screenHeight * .465 - (mobile ? visual?.offsetTop || 0 : 0);
-  const maxScale = Math.min(screenWidth * .476 * .9 / Math.max(1, header.offsetWidth), screenHeight * .146 * .78 / Math.max(1, header.offsetHeight));
-  expandedHeaderWorldScale = maxScale / overview.z;
-  const screenX = centerX - header.offsetWidth * maxScale / 2;
-  const screenY = centerY - header.offsetHeight * maxScale / 2;
-  expandedHeaderAnchor = {
-    x: overview.x + (screenX - pivot.x) / overview.z,
-    y: overview.y + (screenY - pivot.y) / overview.z
-  };
-}
-
 function updateHomeHeader() {
-  const pose = homePresence(camera, minimumZoom(), headerAnchor, pivot);
-  const blend = headerReentered ? pose.opacity : 0;
-  const expandedX = pivot.x + (expandedHeaderAnchor.x - camera.x) * pose.scale;
-  const expandedTop = pivot.y + (expandedHeaderAnchor.y - camera.y) * pose.scale;
-  const x = mix(pose.x, expandedX, blend);
-  const top = mix(pose.top, expandedTop, blend);
-  const scale = mix(pose.scale, camera.z * expandedHeaderWorldScale, blend);
-  header.style.transform = 'translate3d(' + x.toFixed(3) + 'px,' + top.toFixed(3) + 'px,0) scale(' + scale.toFixed(6) + ')';
-  setHeaderOpacity(pose.opacity);
+  const presence = homePresence(camera, minimumZoom(), headerAnchor, pivot);
+  const pose = mode === 'intro' ? presence : boardHeaderPose(camera, pivot, { width: headerWidth, height: headerHeight });
+  header.style.transform = 'translate3d(' + pose.x.toFixed(3) + 'px,' + pose.top.toFixed(3) + 'px,0) scale(' + pose.scale.toFixed(6) + ')';
+  setHeaderOpacity(presence.opacity);
 }
 
 // Touch events can arrive faster than the display. Paint only the latest pose.
@@ -255,12 +234,10 @@ function paintLayout(value) {
 }
 
 function finishIntro() {
-  headerReentered = false;
   progress = targetProgress = 1;
   mode = 'explore';
   preset = 'all';
   camera = fitCamera(extent, size);
-  captureExpandedHeaderAnchor(camera);
   paintLayout(1);
   buildSpatialGrid();
   view.dataset.mode = mode;
@@ -310,7 +287,6 @@ function moveCamera(next, animate = false) {
 
 function zoom(factor, point = pivot, animate = false) {
   if (mode !== 'explore') return;
-  if (factor > 1 && camera.z <= minimumZoom() * 1.005) headerReentered = true;
   if (factor > 1) markDragHintAction('zoom');
   if (factor < 1 && camera.z <= minimumZoom() * 1.005) showDragHint();
   preset = 'custom';
@@ -321,15 +297,13 @@ function returnHome(event) {
   if (event) event.preventDefault();
   if (dialog.open) closeGallery();
   if (mode === 'intro') advanceIntro(-targetProgress);
-  else { headerReentered = false; preset = 'home'; moveCamera(homeCamera(), true); }
+  else { preset = 'home'; moveCamera(homeCamera(), true); }
 }
 
 function showAll() {
   if (mode !== 'explore') return;
-  headerReentered = false;
   preset = 'all';
   const overview = fitCamera(extent, size);
-  captureExpandedHeaderAnchor(overview);
   moveCamera(overview, true);
 }
 
@@ -338,6 +312,7 @@ function measure(remeasureLayout = true) {
   living.clear(true);
   stopCamera();
   headerHeight = header.offsetHeight;
+  headerWidth = header.offsetWidth;
   size = { w: innerWidth, h: innerHeight, top: 0, fitTop: Math.ceil(measurement.querySelector('.site-header').offsetHeight + 16) };
   pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
   const layoutChanged = remeasureLayout || !startingBoxes.length;
@@ -356,7 +331,6 @@ function measure(remeasureLayout = true) {
     if (preset === 'home') camera = homeCamera();
     else if (preset === 'all') camera = fitCamera(extent, size);
     else camera = clampCamera(camera, extent, size, minimumZoom());
-    if (preset === 'all') captureExpandedHeaderAnchor(camera);
   }
   if (mode === 'explore' && !layoutChanged) paintCamera();
   else paintLayout(progress);
@@ -416,7 +390,6 @@ view.addEventListener('pointermove', event => {
     gesture.multi = gesture.moved = true;
     living.clear();
     if (mode === 'explore' && current.distance >= 8 && previous.distance >= 8) {
-      if (current.distance > previous.distance && camera.z <= minimumZoom() * 1.005) headerReentered = true;
       if (current.distance > previous.distance) markDragHintAction('zoom');
       if (current.distance < previous.distance && camera.z <= minimumZoom() * 1.005) showDragHint();
       const z = Math.max(minimumZoom(), Math.min(3, camera.z * current.distance / previous.distance));
@@ -520,3 +493,4 @@ function closeGallery() { gallery.close(); }
 
 measure();
 document.fonts.ready.then(() => measure(true));
+

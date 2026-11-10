@@ -7,7 +7,24 @@ export function spring(value, velocity, target, dt, frequency = 22) {
   return [target + (offset + impulse * dt) * decay, (velocity - frequency * impulse * dt) * decay];
 }
 
-export function liftTargets(items, selected, camera, pivot, size, reduced = false) {
+export function constrainLift(item, target, reservedArea) {
+  if (!reservedArea) return target;
+  const overlaps = pose => {
+    const left = item.x + item.w / 2 + pose.x - item.w * pose.scale / 2;
+    const top = item.y + item.h / 2 + pose.y - item.h * pose.scale / 2;
+    return left < reservedArea.x + reservedArea.w + 12 && left + item.w * pose.scale > reservedArea.x - 12 && top < reservedArea.y + reservedArea.h + 12 && top + item.h * pose.scale > reservedArea.y - 12;
+  };
+  if (!overlaps(target)) return target;
+  let low = 0, high = 1;
+  for (let i = 0; i < 24; i++) {
+    const t = (low + high) / 2;
+    const pose = { x: target.x * t, y: target.y * t, scale: 1 + (target.scale - 1) * t };
+    if (overlaps(pose)) high = t; else low = t;
+  }
+  return { x: target.x * low, y: target.y * low, scale: 1 + (target.scale - 1) * low };
+}
+
+export function liftTargets(items, selected, camera, pivot, size, reduced = false, reservedArea = null) {
   const targets = new Map();
   if (!selected) return targets;
   const z = camera.z, length = Math.max(selected.w, selected.h) * z;
@@ -20,7 +37,7 @@ export function liftTargets(items, selected, camera, pivot, size, reduced = fals
   const edgeW=Math.min(halfW,size.w/2-10), edgeH=Math.min(halfH,size.h/2-10);
   const dx = (clamp(screen.x, edgeW+10, size.w-edgeW-10)-screen.x)/z;
   const dy = (clamp(screen.y, edgeH+10, size.h-edgeH-10)-screen.y)/z;
-  targets.set(selected, {x:dx,y:dy,scale});
+  targets.set(selected, constrainLift(selected, {x:dx,y:dy,scale}, reservedArea));
   if (reduced) return targets;
   const compact=size.w<620;
   const radius = Math.max(compact?44:68, Math.max(halfW,halfH)*(compact?1.25:1.65));
@@ -32,7 +49,7 @@ export function liftTargets(items, selected, camera, pivot, size, reduced = fals
     const falloff = (1-distance/radius)**2;
     const push = Math.min(compact?14:24, 9+desired*.14)*falloff;
     const angle = distance < .01 ? item.photoIndex*2.4+item.project.index : Math.atan2(y,x);
-    targets.set(item, {x:Math.cos(angle)*push/z,y:Math.sin(angle)*push/z,scale:1});
+    targets.set(item, constrainLift(item, {x:Math.cos(angle)*push/z,y:Math.sin(angle)*push/z,scale:1}, reservedArea));
   }
   return targets;
 }
@@ -85,7 +102,7 @@ export function shapeDistance(item,point,mask,limit,pose={x:0,y:0,scale:1}) {
   return best<=limit*limit?Math.sqrt(best):Infinity;
 }
 
-export function createLivingLogo({items,view,getScene,ready,reduced,onDetail}) {
+export function createLivingLogo({items,view,getScene,ready,reduced,onDetail,reservedArea=null}) {
   let active=null, targets=new Map(), frame=0, lastTime=0;
   let candidate=null, switchTimer=0, leaveTimer=0, lastPoint=null, warming=null;
   const masks=new Map(), moving=new Set();
@@ -121,7 +138,9 @@ export function createLivingLogo({items,view,getScene,ready,reduced,onDetail}) {
     return null;
   }
   function render(item) {
-    const s=item.lift, settling=Math.abs(s.scale-1)>.002 || Math.hypot(s.x,s.y)>.05;
+    const s=item.lift, safe=constrainLift(item,item.lift,reservedArea);
+    if(safe!==s) Object.assign(s,safe,{vx:0,vy:0,vs:0});
+    const settling=Math.abs(s.scale-1)>.002 || Math.hypot(s.x,s.y)>.05;
     item.frame.style.transform=settling ? 'translate('+s.x.toFixed(3)+'px,'+s.y.toFixed(3)+'px) scale('+s.scale.toFixed(5)+')' : '';
     item.frame.style.willChange=settling ? 'transform' : '';
     item.element.style.zIndex=item===active ? '100' : settling ? '50' : '';
@@ -161,7 +180,7 @@ export function createLivingLogo({items,view,getScene,ready,reduced,onDetail}) {
     } else delete view.dataset.hover;
     const {camera,pivot,size}=getScene();
     const previous=targets;
-    targets=liftTargets(items,item,camera,pivot,size,reduced());
+    targets=liftTargets(items,item,camera,pivot,size,reduced(),reservedArea);
     for(const target of previous.keys()) moving.add(target);
     for(const target of targets.keys()) moving.add(target);
     start();onDetail();
@@ -191,3 +210,4 @@ export function createLivingLogo({items,view,getScene,ready,reduced,onDetail}) {
   }
   return {warm,pointer,targetAt,emphasize,clear,selected:()=>active};
 }
+

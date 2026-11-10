@@ -1,4 +1,5 @@
 import { LOGO_PATHS } from './logo-paths.mjs';
+import { BOARD_HEADER_AREA } from './board-header.mjs?v=locked-board-1';
 
 const noise = seed => { const n = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
 const ratioFor = piece => piece.kind === 'jacket' ? 1 : piece.kind === 'small-object' ? 1.25 : .8;
@@ -98,6 +99,11 @@ export function makeLogoProjects(pieces) {
           }
           if (!placed) { failed = true; break; }
           positioned.push(placed); occupied.push(placed);
+          if (specification.index === 0 && item.photoIndex === 0) {
+            const originX = placed.x + placed.w / 2;
+            const originY = placed.y + placed.h / 2 - 340;
+            occupied.push({ x: originX + BOARD_HEADER_AREA.x, y: originY + BOARD_HEADER_AREA.y, w: BOARD_HEADER_AREA.w, h: BOARD_HEADER_AREA.h });
+          }
           photoCursor += item.weight;
         }
         if (failed) break;
@@ -120,3 +126,4 @@ export function makeLogoProjects(pieces) {
     return { piece: project.piece, index: project.index, x, y, w, h, items: positions.map(item => ({ ...item, x: item.x - x, y: item.y - y })) };
   });
 }
+

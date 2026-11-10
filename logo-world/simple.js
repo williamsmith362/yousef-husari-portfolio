@@ -1,4 +1,5 @@
-import { mountGallery } from './gallery.mjs?v=20261109';
+import { mountGallery } from './gallery.mjs?v=grouped-trousers-1';
+import { orderCatalogProjects } from './catalog-order.mjs?v=grouped-trousers-1';
 
 const pieces=JSON.parse(document.getElementById('portfolio-data').textContent);
 const covers=[...document.querySelectorAll('.photo-portfolio button.piece')];
@@ -13,6 +14,8 @@ const gallery=mountGallery({pieces,onClose(){if(pendingMeasure){pendingMeasure=f
 for(const tile of covers) tile.addEventListener('click',()=>gallery.open(Number(tile.dataset.piece),0,tile));
 gallery.dialog.querySelector('[data-home]').addEventListener('click',event=>{event.preventDefault();gallery.close();window.scrollTo({top:0,behavior:'instant'});});
 const grid=document.querySelector('.masonry-grid');
+const order=new Map(orderCatalogProjects(pieces).map((piece,index)=>[piece.id,index]));
+grid.replaceChildren(...[...grid.children].sort((a,b)=>order.get(pieces[Number(a.dataset.piece)].id)-order.get(pieces[Number(b.dataset.piece)].id)));
 let width=0, frame=0;
 function measure() {
   if(gallery.dialog.open){pendingMeasure=true;return;}
@@ -22,3 +25,4 @@ function measure() {
 }
 addEventListener('resize',()=>{if(innerWidth!==width){cancelAnimationFrame(frame);frame=requestAnimationFrame(measure);}});
 measure();document.fonts.ready.then(measure);
+

@@ -1,4 +1,5 @@
 import { photoFrame } from './photos.mjs';
+import { orderCatalogProjects } from './catalog-order.mjs?v=grouped-trousers-1';
 
 export function galleryWindow(index, count, radius = 2) {
   return {first:Math.max(0,index-radius),last:Math.min(count-1,index+radius)};
@@ -9,7 +10,8 @@ export function nearestGalleryIndex(left, geometry, count) {
 
 export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) {
   const reduce=matchMedia('(prefers-reduced-motion: reduce)');
-  const photographs=pieces.flatMap((piece,pieceIndex)=>piece.images.map((image,photoIndex)=>({piece,pieceIndex,image,photoIndex})));
+  const pieceIndices=new Map(pieces.map((piece,index)=>[piece.id,index]));
+  const photographs=orderCatalogProjects(pieces).flatMap(piece=>piece.images.map((image,photoIndex)=>({piece,pieceIndex:pieceIndices.get(piece.id),image,photoIndex})));
   const photoIndices=new Map(photographs.map((photo,index)=>[photo.piece.id+':'+photo.photoIndex,index]));
   const dialog=document.querySelector('.world-gallery');
   const rail=dialog.querySelector('.gallery-rail');
@@ -160,3 +162,4 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
   });
   return {dialog,open:openGallery,close:closeGallery,goToPhoto};
 }
+
