@@ -129,8 +129,11 @@ function setHeaderOpacity(value) {
 function updateHomeHeader() {
   const pose = homePresence(camera, minimumZoom(), headerAnchor, pivot);
   const blend = headerReentered ? pose.opacity : 0;
-  const x = mix(pose.x, size.w * .30, blend);
-  const top = mix(pose.top, size.h * .42, blend);
+  const expandedScale = pose.scale * 1.35;
+  const targetX = size.w * .484 - header.offsetWidth * expandedScale / 2;
+  const targetTop = size.h * .465 - header.offsetHeight * expandedScale / 2;
+  const x = mix(pose.x, targetX, blend);
+  const top = mix(pose.top, targetTop, blend);
   const scale = pose.scale * mix(1, 1.35, blend);
   header.style.transform = 'translate3d(' + x.toFixed(3) + 'px,' + top.toFixed(3) + 'px,0) scale(' + scale.toFixed(6) + ')';
   setHeaderOpacity(pose.opacity);
