@@ -34,7 +34,7 @@ let preset = 'home';
 let startingBoxes = [];
 let headerHeight = 115, previousHeaderOpacity = -1;
 let paintFrame = 0, qualityTimer = 0, layoutWidth = 0;
-let headerAnchor = homeAnchor(size), pendingMeasure = false;
+let headerAnchor = homeAnchor(size), expandedHeaderAnchor = { x: 0, y: 0 }, pendingMeasure = false;
 
 const items = projects.flatMap(project => project.items.map(item => {
   const element = item.photoIndex === 0 ? sourceCovers[project.index].cloneNode(true) : document.createElement('button');
@@ -126,14 +126,23 @@ function setHeaderOpacity(value) {
 }
 
 // Keep one world coordinate beside the spawn area, just like the photographs.
+function captureExpandedHeaderAnchor(overview) {
+  const scale = overview.z * 1.35;
+  const screenX = size.w * .484 - header.offsetWidth * scale / 2;
+  const screenY = size.h * .465 - header.offsetHeight * scale / 2;
+  expandedHeaderAnchor = {
+    x: overview.x + (screenX - pivot.x) / overview.z,
+    y: overview.y + (screenY - pivot.y) / overview.z
+  };
+}
+
 function updateHomeHeader() {
   const pose = homePresence(camera, minimumZoom(), headerAnchor, pivot);
   const blend = headerReentered ? pose.opacity : 0;
-  const expandedScale = pose.scale * 1.35;
-  const targetX = size.w * .484 - header.offsetWidth * expandedScale / 2;
-  const targetTop = size.h * .465 - header.offsetHeight * expandedScale / 2;
-  const x = mix(pose.x, targetX, blend);
-  const top = mix(pose.top, targetTop, blend);
+  const expandedX = pivot.x + (expandedHeaderAnchor.x - camera.x) * pose.scale;
+  const expandedTop = pivot.y + (expandedHeaderAnchor.y - camera.y) * pose.scale;
+  const x = mix(pose.x, expandedX, blend);
+  const top = mix(pose.top, expandedTop, blend);
   const scale = pose.scale * mix(1, 1.35, blend);
   header.style.transform = 'translate3d(' + x.toFixed(3) + 'px,' + top.toFixed(3) + 'px,0) scale(' + scale.toFixed(6) + ')';
   setHeaderOpacity(pose.opacity);
@@ -228,6 +237,7 @@ function finishIntro() {
   mode = 'explore';
   preset = 'all';
   camera = fitCamera(extent, size);
+  captureExpandedHeaderAnchor(camera);
   paintLayout(1);
   buildSpatialGrid();
   view.dataset.mode = mode;
@@ -259,7 +269,9 @@ function stopCamera() { cancelAnimationFrame(cameraFrame); cameraFrame = 0; }
 function moveCamera(next, animate = false) {
   living.clear();
   stopCamera();
-  const destination = clampCamera(next, extent, size, minimumZoom());
+  const minimum = minimumZoom();
+  const destination = clampCamera(next, extent, size, minimum);
+  if (mode === 'explore' && camera.z <= minimum * 1.005 && next.z <= minimum * 1.005 && Math.abs(next.y-camera.y) > .001 && Math.abs(destination.y-camera.y) < .001) showDragHint();
   if(Math.abs(destination.x-camera.x)<.0001 && Math.abs(destination.y-camera.y)<.0001 && Math.abs(destination.z-camera.z)<.000001) return;
   if (!animate || reduce.matches) { camera = destination; requestCameraPaint(); return; }
   const from = { ...camera }, start = performance.now();
@@ -292,7 +304,9 @@ function showAll() {
   if (mode !== 'explore') return;
   headerReentered = false;
   preset = 'all';
-  moveCamera(fitCamera(extent, size), true);
+  const overview = fitCamera(extent, size);
+  captureExpandedHeaderAnchor(overview);
+  moveCamera(overview, true);
 }
 
 function measure(remeasureLayout = true) {
@@ -318,6 +332,7 @@ function measure(remeasureLayout = true) {
     if (preset === 'home') camera = homeCamera();
     else if (preset === 'all') camera = fitCamera(extent, size);
     else camera = clampCamera(camera, extent, size, minimumZoom());
+    if (preset === 'all') captureExpandedHeaderAnchor(camera);
   }
   if (mode === 'explore' && !layoutChanged) paintCamera();
   else paintLayout(progress);
@@ -336,6 +351,7 @@ addEventListener('wheel', event => {
   }
   // Ignore only the remaining momentum of the gesture that completed the intro.
   if (performance.now() < navigationReadyAt) { navigationReadyAt = performance.now() + 100; return; }
+  if (mode === 'explore' && !event.ctrlKey && !event.metaKey && camera.z <= minimumZoom() * 1.005 && Math.abs(event.deltaY) > 0) showDragHint();
   if (event.ctrlKey || event.metaKey) zoom(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * .01), { x: event.clientX, y: event.clientY });
   else {
     const dx = (event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX) * factor;
@@ -391,6 +407,7 @@ view.addEventListener('pointermove', event => {
     else {
       preset = 'custom';
       view.dataset.dragging = 'true';
+      if (camera.z <= minimumZoom() * 1.005 && Math.abs(point.y - gesture.last.y) > .1) showDragHint();
       moveCamera({ x: camera.x - (point.x - gesture.last.x) / camera.z, y: camera.y - (point.y - gesture.last.y) / camera.z, z: camera.z });
     }
   }
