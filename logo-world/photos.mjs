@@ -1,4 +1,6 @@
-export function photoFrame(image, ratio = .8, preview = false) {
+export const EMPTY_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+
+export function photoFrame(image, ratio = .8, preview = false, deferred = false) {
   const b = image.bounds;
   const productRatio = b.width / b.height;
   const frame = document.createElement('span');
@@ -9,7 +11,7 @@ export function photoFrame(image, ratio = .8, preview = false) {
   crop.style.width = (productRatio > ratio ? 91 : 91 * productRatio / ratio) + '%';
   crop.style.height = (productRatio > ratio ? 91 * ratio / productRatio : 91) + '%';
   const img = document.createElement('img');
-  img.src = (preview ? '/previews/' : '/pieces/') + image.file + '.webp';
+  img.src = deferred ? EMPTY_IMAGE : (preview ? '/previews/' : '/pieces/') + image.file + '.webp';
   img.alt = image.alt;
   img.loading = 'lazy';
   img.decoding = 'async';
@@ -19,4 +21,5 @@ export function photoFrame(image, ratio = .8, preview = false) {
   frame.append(crop);
   return frame;
 }
+
 

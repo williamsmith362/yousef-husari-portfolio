@@ -1,5 +1,6 @@
-import { photoFrame } from './photos.mjs';
+import { photoFrame } from './photos.mjs?v=momentum-images-1';
 import { orderCatalogProjects } from './catalog-order.mjs?v=grouped-trousers-1';
+import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=momentum-images-1';
 
 export function galleryWindow(index, count, radius = 2) {
   return {first:Math.max(0,index-radius),last:Math.min(count-1,index+radius)};
@@ -10,6 +11,7 @@ export function nearestGalleryIndex(left, geometry, count) {
 
 export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) {
   const reduce=matchMedia('(prefers-reduced-motion: reduce)');
+  const imageQueue=createImageQueue({concurrency:innerWidth<620?2:4});
   const pieceIndices=new Map(pieces.map((piece,index)=>[piece.id,index]));
   const photographs=orderCatalogProjects(pieces).flatMap(piece=>piece.images.map((image,photoIndex)=>({piece,pieceIndex:pieceIndices.get(piece.id),image,photoIndex})));
   const photoIndices=new Map(photographs.map((photo,index)=>[photo.piece.id+':'+photo.photoIndex,index]));
@@ -28,7 +30,8 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
     rail.append(slide);
     return slide;
   });
-  const loaded=new Set(), pointers=new Set();
+  const loaded=new Set(), decoded=new Set(), pointers=new Set();
+  let galleryActive=false;
   let activePhoto=0, visiblePhoto=-1, intendedPhoto=null, lastFocus=null;
   let scrollFrame=0, openFrame=0, wheelTimer=0, settleTimer=0, resizeTimer=0;
   let railDrag=null, nativeTouches=0, pendingResize=false, lastScroll=-Infinity;
@@ -36,6 +39,7 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
   let geometry={step:1,firstCenter:0,width:0};
 
   function releaseImage(index) {
+    imageQueue.cancel(slides[index]);decoded.delete(index);
     slides[index].querySelector('img')?.removeAttribute('src');
     slides[index].replaceChildren();
     loaded.delete(index);
@@ -43,12 +47,20 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
   function hydrateGallery(index) {
     const range=galleryWindow(index,slides.length,innerWidth<620?2:3);
     for(const i of loaded) if(i<range.first || i>range.last) releaseImage(i);
-    for(let i=range.first;i<=range.last;i++) if(!loaded.has(i)) {
-      const frame=photoFrame(photographs[i].image);
-      const image=frame.querySelector('img');
-      image.loading='eager';
-      image.fetchPriority=i===index?'high':'low';
-      slides[i].append(frame);loaded.add(i);
+    for(let i=range.first;i<=range.last;i++) {
+      if(!loaded.has(i)) {
+        const frame=photoFrame(photographs[i].image,.8,false,true);
+        frame.querySelector('img').dataset.imageReady='false';
+        slides[i].append(frame);loaded.add(i);
+      }
+      if(!decoded.has(i)) {
+        const image=slides[i].querySelector('img');
+        imageQueue.request(slides[i],'/pieces/'+photographs[i].image.file+'.webp',{
+          priority:Math.abs(i-index),
+          wanted:()=>galleryActive && loaded.has(i) && slides[i].contains(image),
+          ready(photo){replaceDecodedImage(image,photo);decoded.add(i);}
+        });
+      }
     }
   }
   function measureGeometry() {
@@ -88,6 +100,7 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
     },100);
   }
   function openGallery(pieceIndex,photoIndex,trigger) {
+    galleryActive=true;imageQueue.resume();
     onOpen();lastFocus=trigger;
     const destination=photoIndices.get(pieces[pieceIndex].id+':'+photoIndex);
     document.documentElement.classList.add('gallery-open');
@@ -100,6 +113,7 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
     });
   }
   function closeGallery() {
+    galleryActive=false;imageQueue.clear();imageQueue.pause();
     clearTimeout(wheelTimer);clearTimeout(settleTimer);clearTimeout(resizeTimer);
     cancelAnimationFrame(openFrame);cancelAnimationFrame(scrollFrame);scrollFrame=0;
     railDrag=null;nativeTouches=0;pointers.clear();pendingResize=false;resizePhoto=null;intendedPhoto=null;
@@ -152,6 +166,7 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
     if(pendingResize) queueResize();
   },{passive:true});
   addEventListener('resize',()=>{if(dialog.open){if(innerWidth!==measuredWidth) resizePhoto??=activePhoto;pendingResize=true;queueResize();}});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden) imageQueue.pause();else if(galleryActive) imageQueue.resume();});
   rail.addEventListener('keydown',event=>{if(event.key==='Home' || event.key==='End'){event.preventDefault();goToPhoto(event.key==='Home'?0:slides.length-1,false);}});
   dialog.querySelector('.close-button').addEventListener('click',closeGallery);
   dialog.addEventListener('cancel',event=>{event.preventDefault();closeGallery();});
