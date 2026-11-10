@@ -5,6 +5,7 @@ import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=locked-
 import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=locked-board-1';
 import { SCROLL_FEEL, inputTime, damp, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
+import { createNativeIntroScroll } from './native-scroll.mjs?v=native-scroll-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=momentum-images-1';
 
 const view = document.querySelector('.world-viewport');
@@ -198,7 +199,7 @@ function trimDetailImages() {
 }
 
 function refreshImageQuality() {
-  if (dialog.open || cameraFrame || introFrame) return;
+  if (dialog.open || cameraFrame || introFrame || nativeIntro.scrolling) return;
   if (points.size) { scheduleImageQuality(); return; }
   const density = Math.min(2, devicePixelRatio || 1);
   for (const item of items) {
@@ -291,6 +292,7 @@ function paintLayout(value) {
 }
 
 function finishIntro() {
+  nativeIntro.disable();
   introVelocity = 0;
   progress = targetProgress = 1;
   mode = 'explore';
@@ -299,6 +301,7 @@ function finishIntro() {
   paintLayout(1);
   buildSpatialGrid();
   view.dataset.mode = mode;
+  view.addEventListener('wheel', handleWorldWheel, { passive: false });
   announcement.textContent = 'Portfolio expanded.';
   navigationReadyAt = performance.now() + 220;
 }
@@ -319,6 +322,7 @@ function animateIntro(time) {
     progress = reduce.matches ? targetProgress : damp(progress, targetProgress, elapsed, introResponse);
     if (Math.abs(progress - targetProgress) < .00005) progress = targetProgress;
   }
+  nativeIntro.sync(progress);
   paintLayout(progress);
   if (progress === 1) { finishIntro(); lastIntroTime = 0; return; }
   if (introVelocity || progress !== targetProgress) introFrame = requestAnimationFrame(animateIntro);
@@ -336,7 +340,7 @@ function advanceIntro(delta, { direct = false, response = 80 } = {}) {
   if (introVelocity || direct) { introVelocity = 0; targetProgress = progress; }
   targetProgress = clamp01(targetProgress + delta);
   introResponse = response;
-  if (direct || reduce.matches) progress = targetProgress;
+  if (direct || reduce.matches) { progress = targetProgress; nativeIntro.sync(progress); }
   if (!introFrame) { lastIntroTime = performance.now(); introFrame = requestAnimationFrame(animateIntro); }
 }
 
@@ -430,6 +434,7 @@ function measure(remeasureLayout = true) {
   headerWidth = header.offsetWidth;
   size = { w: innerWidth, h: innerHeight, top: 0, fitTop: Math.ceil(measurement.querySelector('.site-header').offsetHeight + 16) };
   pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
+  if (mode === 'intro') nativeIntro.resize(introScrollRange(), progress);
   if (layoutChanged) {
     const grid = measurement.querySelector('.masonry-grid');
     for (const tile of grid.children) tile.style.gridRowEnd = 'span ' + Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height + parseFloat(getComputedStyle(tile).paddingBottom));
@@ -462,7 +467,7 @@ function measure(remeasureLayout = true) {
 }
 
 addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => measure(Math.abs(innerWidth - layoutWidth) > 1)); });
-addEventListener('wheel', event => {
+function handleWorldWheel(event) {
   if (dialog.open) return;
   living.clear();
   event.preventDefault();
@@ -484,7 +489,11 @@ addEventListener('wheel', event => {
     const origin = cameraInput === 'wheel-pan' && cameraTarget ? cameraTarget : camera;
     moveCamera({ x: origin.x + dx / origin.z, y: origin.y + dy / origin.z, z: origin.z }, true, response, 'wheel-pan');
   }
-}, { passive: false });
+}
+// Let native wheel/trackpad deltas and their momentum reach the opening scroller.
+view.addEventListener('wheel', () => {
+  if (mode === 'intro' && !dialog.open) { living.clear(); stopIntro(); }
+}, { passive: true });
 
 const points = new Map();
 let gesture = null;
@@ -492,6 +501,14 @@ const pair = () => { const [a, b] = [...points.values()]; return { x: (a.x + b.x
 function resetGesture() { points.clear(); gesture = null; flickTracker.reset(); delete view.dataset.dragging; }
 view.addEventListener('pointerdown', event => {
   if (event.target.closest('a') || event.button > 0 || dialog.open) return;
+  if (mode === 'intro' && event.pointerType === 'touch') {
+    stopIntro();
+    const point = { x: event.clientX, y: event.clientY };
+    points.set(event.pointerId, point);
+    if (!gesture) gesture = { start: point, last: point, startedMode: mode, moved: false, multi: false, native: true, pointerType: event.pointerType, item: event.target.closest('.world-item') };
+    else gesture.multi = gesture.moved = true;
+    return;
+  }
   event.preventDefault();
   stopCamera();
   if (mode === 'intro') stopIntro();
@@ -508,6 +525,13 @@ view.addEventListener('pointerdown', event => {
 view.addEventListener('pointermove', event => {
   if (!points.has(event.pointerId) || !gesture) {
     if (!points.size && event.pointerType === 'mouse') living.pointer({x:event.clientX,y:event.clientY});
+    return;
+  }
+  if (gesture.native) {
+    const point = { x: event.clientX, y: event.clientY };
+    points.set(event.pointerId, point);
+    if (Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) > 6) gesture.moved = true;
+    gesture.last = point;
     return;
   }
   event.preventDefault();
@@ -561,7 +585,7 @@ function releasePointer(event, cancelled = false) {
     return;
   }
   resetGesture();
-  if (!cancelled && previous?.moved && !previous.multi && previous.pointerType !== 'mouse' && previous.startedMode === mode) {
+  if (!cancelled && previous?.moved && !previous.native && !previous.multi && previous.pointerType !== 'mouse' && previous.startedMode === mode) {
     if (mode === 'intro') startIntroGlide(-velocity.y / introScrollRange());
     else startCameraGlide({ x: -velocity.x, y: -velocity.y });
   }
@@ -629,14 +653,29 @@ addEventListener('keydown', event => {
 
 const gallery = mountGallery({ pieces, onOpen() {
   stopIntro(); stopCamera(); living.clear(true);
+  nativeIntro.pause();
   previewQueue.pause(); detailQueue.pause(); detailQueue.clear();
 }, onClose() {
+  nativeIntro.resume(progress);
   previewQueue.resume(); detailQueue.resume(); requestCameraPaint();
   if(pendingMeasure) {pendingMeasure=false;measure(Math.abs(innerWidth-layoutWidth)>1);}
   scheduleImageQuality();
 } });
 function openGallery(pieceIndex, photoIndex, trigger) { gallery.open(pieceIndex, photoIndex, trigger); }
 function closeGallery() { gallery.close(); }
+
+// Keep the header inside the native scroll hit area without changing its pose.
+view.prepend(header);
+const nativeIntro = createNativeIntroScroll({ view,
+  onChange(value) {
+    if (mode !== 'intro' || dialog.open) return;
+    stopIntro();
+    progress = targetProgress = value;
+    paintLayout(value);
+    if (value === 1) finishIntro();
+  },
+  onIdle: scheduleImageQuality
+});
 
 measure();
 document.fonts.ready.then(() => measure(true));

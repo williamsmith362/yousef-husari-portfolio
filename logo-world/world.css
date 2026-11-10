@@ -5,6 +5,11 @@ html.gallery-open { overflow: hidden; }
 .world-measurement { position: fixed; top: 0; left: 0; width: 100%; min-height: 100dvh; display: flex; flex-direction: column; visibility: hidden; pointer-events: none; }
 .site-header.world-header { position: fixed; z-index: 20; left: 0; top: 0; margin: 0; padding: 0; align-items: flex-start; gap: 14px; transform-origin: 0 0; width: max-content; max-width: none; transition: opacity 140ms linear; will-change: transform, opacity; }
 .world-viewport { position: fixed; inset: 0; overflow: hidden; touch-action: none; user-select: none; }
+.world-viewport[data-native-scroll] { overflow-x: hidden; overflow-y: scroll; touch-action: pan-y; overscroll-behavior: none; scrollbar-width: none; scroll-behavior: auto; -webkit-overflow-scrolling: touch; }
+.world-viewport[data-native-scroll]::-webkit-scrollbar { display: none; }
+.world-viewport[data-scroll-paused] { overflow-y: hidden; }
+.world-scroll-space { width: 1px; height: calc(100% + var(--intro-scroll-range, 3200px)); pointer-events: none; }
+.world-viewport[data-native-scroll] .world-plane { position: fixed; }
 .world-viewport[data-mode="explore"] { cursor: default; }
 .world-viewport[data-dragging="true"] { cursor: grabbing; }
 .world-plane { position: absolute; left: 50%; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
