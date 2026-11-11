@@ -23,8 +23,8 @@ function collides(a, b) {
   return a.x < b.x + b.w + 9 && a.x + a.w + 9 > b.x && a.y < b.y + b.h + 9 && a.y + a.h + 9 > b.y;
 }
 
-// Contiguous parts of the pen strokes belong to individual projects. Varying
-// size, spacing, aspect ratio and side offsets makes loose clusters, not rows.
+// Keep each project together while following the original pen strokes closely.
+// Small side offsets preserve a natural arrangement without blurring the logo.
 export function makeLogoProjects(pieces) {
   const specifications = pieces.map((piece, index) => {
     const mainWidth = 155 + noise(index * 7 + 3) * 42;
@@ -40,7 +40,7 @@ export function makeLogoProjects(pieces) {
       const weight = Math.hypot(w, h) * .65 + 8;
       return { image, photoIndex, w, h, ratio, weight };
     });
-    return { piece, index, items, weight: items.reduce((sum, item) => sum + item.weight, 0) + 180 };
+    return { piece, index, items, weight: items.reduce((sum, item) => sum + item.weight, 0) + 110 };
   });
   const totalWeight = specifications.reduce((sum, p) => sum + p.weight, 0);
   const totalLength = curves.reduce((sum, c) => sum + c.length, 0);
@@ -77,7 +77,7 @@ export function makeLogoProjects(pieces) {
       const unit = curve.length / loads[pathIndex];
       let projectCursor = 0;
       for (const specification of ordered) {
-        let photoCursor = projectCursor + 90;
+        let photoCursor = projectCursor + 55;
         const positioned = [];
         for (const item of specification.items) {
           const nominal = (photoCursor + item.weight / 2) * unit;
@@ -91,7 +91,7 @@ export function makeLogoProjects(pieces) {
             // Keep the cream utility group on the left-hand curve instead of
             // letting its supporting views drift away from the trouser cover.
             const sideSpread = specification.piece.id === '03' ? .7 : 1;
-            const side = ((noise(specification.index * 101 + item.photoIndex * 17 + 7) - .5) * item.w * 1.5 + (trial ? Math.sin(trial * 2.4) * item.w * .7 : 0)) * sideSpread;
+            const side = ((noise(specification.index * 101 + item.photoIndex * 17 + 7) - .5) * item.w * .45 + (trial ? Math.sin(trial * 2.4) * item.w * .25 : 0)) * sideSpread;
             const x = p.x * scale - p.ty * side - item.w / 2;
             const y = p.y * scale + p.tx * side - item.h / 2;
             const box = { x, y, w: item.w, h: item.h };
@@ -126,4 +126,5 @@ export function makeLogoProjects(pieces) {
     return { piece: project.piece, index: project.index, x, y, w, h, items: positions.map(item => ({ ...item, x: item.x - x, y: item.y - y })) };
   });
 }
+
 

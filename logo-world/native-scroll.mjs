@@ -36,6 +36,19 @@ export function createNativeIntroScroll({ view, onChange, onIdle }) {
   }, { passive: true });
   view.addEventListener('scrollend', settle, { passive: true });
 
+  // Fixed photo layers can bypass their native scrolling ancestor during wheel
+  // hit testing. Forward only those deltas; empty-space and touch scrolling stay
+  // browser-owned, including the trackpad's native momentum events.
+  view.addEventListener('wheel', event => {
+    if (!enabled || paused || event.ctrlKey || event.metaKey || !event.cancelable) return;
+    if (!event.target.closest?.('.world-plane')) return;
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? view.clientHeight : 1;
+    const delta = event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY * unit;
+    if (!delta) return;
+    event.preventDefault();
+    view.scrollTop = Math.max(0, Math.min(range, view.scrollTop + delta));
+  }, { capture: true, passive: false });
+
   return {
     get scrolling() { return scrolling; },
     resize(nextRange, progress) {
@@ -77,3 +90,4 @@ export function createNativeIntroScroll({ view, onChange, onIdle }) {
     }
   };
 }
+

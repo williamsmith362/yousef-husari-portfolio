@@ -3,9 +3,9 @@ import { mountGallery } from './gallery.mjs?v=momentum-images-1';
 import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
 import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=locked-board-1';
 import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
-import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=locked-board-1';
+import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=clean-monogram-1';
 import { SCROLL_FEEL, inputTime, damp, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
-import { createNativeIntroScroll } from './native-scroll.mjs?v=native-scroll-1';
+import { createNativeIntroScroll } from './native-scroll.mjs?v=photo-wheel-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=momentum-images-1';
 
 const view = document.querySelector('.world-viewport');
@@ -736,4 +736,5 @@ const nativeIntro = createNativeIntroScroll({ view,
 
 measure();
 document.fonts.ready.then(() => measure(true));
+
 
