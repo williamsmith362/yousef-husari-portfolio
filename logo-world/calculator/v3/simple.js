@@ -9,8 +9,8 @@ $('measure').after(fit);cards[1]=fit;
 cards.forEach(c=>c.classList.add('step-panel'));
 $('measureTitle').textContent='Your measurements';$('loadExample').textContent='Use example';$('clothTitle').textContent='Fabric estimate';
 const stepNames=['Measure','Fit','Pattern','Fabric'];
-const titles=['Measure your pants.','Make the fit yours.','Your front & back.','How much fabric?'];
-const hints=['Start with pants that fit. Add the six measurements below.','Optional. Keep the defaults, or adjust the fit you want.','Draw each panel from the table. Add cutting allowances before cutting.','Choose your fabric type, then enter its unfolded width.'];
+const titles=['Measure your jeans.','Make the fit yours.','Your front & back.','How much fabric?'];
+const hints=['Start with jeans that fit. Add the six measurements below.','Optional. Keep the defaults, or adjust the fit you want.','Draw each panel from the table. Add cutting allowances before cutting.','Choose selvedge or regular denim, then enter its full, unfolded width.'];
 const nextLabels=['Next: Fit','Next: Pattern','Next: Fabric','Calculate'];
 const nav=document.querySelector('.steps');
 nav.innerHTML=stepNames.map((name,i)=>`<button type="button" data-step="${i}"><span class="step-dot">${i+1}</span>${name}</button>`).join('');
@@ -77,7 +77,7 @@ document.addEventListener('keydown',e=>{
  const i=inputs.indexOf(e.target),next=inputs[i+(e.shiftKey?-1:1)];
  if(next)next.focus();else if(!e.shiftKey)$('stepNext').click();
 });
-$('aboutTool').addEventListener('click',()=>{openInfo('About the pattern tool','<p>A personal worksheet for drafting selvedge pants. Start with measurements, review the front and back, then plan your fabric.</p><p>Shapes are drafting references. True the curves and check fit on a test pair.</p><p>Your drafts stay in this browser. Export a backup to keep a copy or move to another device.</p><p>Keyboard: Enter moves to the next field. Command or Control + S opens Save draft. Escape closes a dialog.</p>');$('moreMenu').open=false;});
+$('aboutTool').addEventListener('click',()=>{openInfo('About the jeans calculator','<p>A personal worksheet for drafting jeans, designed around selvedge denim. Start with measurements, review your front and back panels, then estimate your denim yardage.</p><p>Selvedge layouts keep each outseam on an original fabric edge. Regular denim layouts are available too.</p><p>Shapes are drafting references. True the curves and check fit on a test pair.</p><p>Your drafts stay in this browser. Export a backup to keep a copy or move to another device.</p><p>Keyboard: Enter moves to the next field. Command or Control + S opens Save draft. Escape closes a dialog.</p>');$('moreMenu').open=false;});
 document.querySelectorAll('.guide-links a').forEach(a=>{a.target='_blank';a.rel='noopener';});
 for(const [id,title,content] of [['draftTitle','Using your pattern',()=>'<p>These are stitching-line dimensions. Add your cutting allowances before cutting.</p>'+[...$('draft').querySelectorAll('.table-note')].map(p=>'<p>'+p.innerHTML+'</p>').join('')],['clothTitle','Planning fabric',()=>'<p>Choose the fabric type and enter its unfolded width. The estimate uses four leg panels, allowances, extra fabric and shrinkage.</p>'+[...$('fabricResult').querySelectorAll('.fabric-detail,.fabric-limit')].map(p=>'<p>'+p.innerHTML+'</p>').join('')]]){const b=document.createElement('button');b.type='button';b.className='info-button';b.textContent='i';b.setAttribute('aria-label',title);b.onclick=()=>openInfo(title,content());$(id).append(' ',b);}
 show(0,false);

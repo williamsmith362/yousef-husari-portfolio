@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Yousef Husari · Patterning Calculator",
+  "name": "Yousef Husari \u00b7 Selvedge Jeans Calculator",
   "short_name": "Yousef Husari",
-  "description": "A simple jeans pattern calculator and fabric planner.",
+  "description": "Draft jeans patterns and plan denim yardage, with layouts for selvedge and regular fabric.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

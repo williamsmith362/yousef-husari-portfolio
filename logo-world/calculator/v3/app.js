@@ -74,7 +74,7 @@ for(const [container,definitions]of Object.entries(fieldDefinitions)){
  $(container).innerHTML=definitions.map(([key,label,help,kind='length'])=>{
    const id=domId(key);fieldKinds.set(key,kind);
    let extra='';
-   if(kind==='circumference')extra=`<div class="field-options"><select id="${key}Mode" data-measurement="${key}" aria-label="${label} measurement type"><option value="garment-around">Pants · around</option><option value="garment-flat">Pants · flat ×2</option><option value="body-around">Body · around</option></select><input id="${key}Source" type="hidden" value="garment"><input id="${key}Flat" type="hidden" value="false"></div><span class="target-note" id="${key}Target"></span>`;
+   if(kind==='circumference')extra=`<div class="field-options"><select id="${key}Mode" data-measurement="${key}" aria-label="${label} measurement type"><option value="garment-around">Jeans · around</option><option value="garment-flat">Jeans · flat ×2</option><option value="body-around">Body · around</option></select><input id="${key}Source" type="hidden" value="garment"><input id="${key}Flat" type="hidden" value="false"></div><span class="target-note" id="${key}Target"></span>`;
    if(kind==='lengthOrigin')extra='<select class="under-select" id="lengthOrigin" data-field="lengthOrigin" aria-label="Total length starts at"><option value="top">Includes band</option><option value="below">Below band</option></select>';
    return `<div class="field"><label for="${id}">${label}<span class="${['ratio','percent'].includes(kind)?'':'input-unit'}">${['ratio','percent'].includes(kind)?'%':state.unit}</span></label><input id="${id}" data-field="${key}" inputmode="decimal" type="text" autocomplete="off" aria-describedby="${id}Help ${id}Error" placeholder="${['waist','seat','depth','length','opening'].includes(key)?({waist:32,seat:40,depth:12,length:42,opening:8}[key]):'—'}">${extra}<span class="field-help" id="${id}Help">${help}</span><span class="field-error" id="${id}Error"></span></div>`;
  }).join('');
@@ -96,7 +96,7 @@ function syncInputs(){
 }
 function updateFabricType(){
  document.querySelectorAll('[data-fabric-type]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.fabricType===state.draft.fabricType)));
- $('fabricTypeNote').textContent=state.draft.fabricType==='regular'?'Fit up to four panels across the usable width.':'Outseams stay on the selvedges.';
+ $('fabricTypeNote').textContent=state.draft.fabricType==='regular'?'Fit up to four panels across the usable width.':'Keep the original selvedge edges along your outseams.';
 }
 document.querySelectorAll('[data-fabric-type]').forEach(button=>button.addEventListener('click',()=>{
  if(state.draft.fabricType===button.dataset.fabricType)return;
