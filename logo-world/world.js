@@ -42,6 +42,7 @@ const wheelResponse = createWheelSmoothing();
 let dragHintActive = false, dragHintShown = false, dragHintUsedZoom = false, dragHintUsedDrag = false;
 let dragHintConsumed = false;
 let waveComplete = false, waveTimer = 0, hintDistance = 0, hintEvents = 0;
+let finishWave = () => {};
 try { dragHintConsumed = window.sessionStorage.getItem('portfolio-zoom-drag-hint-used') === '1'; } catch {}
 const worldCellSize = 512;
 let spatialGrid = null;
@@ -130,6 +131,7 @@ function beginOverviewWave() {
   hintDistance = 0; hintEvents = 0;
   clearTimeout(waveTimer);
   const release = () => {
+    clearTimeout(waveTimer);
     waveComplete = true;
     previewQueue.setConcurrency(innerWidth < 620 ? 4 : 6);
     view.dataset.wave = 'ready';
@@ -137,6 +139,7 @@ function beginOverviewWave() {
     announcement.textContent = 'Portfolio ready to explore.';
     scheduleImageQuality();
   };
+  finishWave = release;
   if (reduce.matches) { release(); return; }
   // Each photograph gets its own point along a top-left to bottom-right sweep.
   const width = Math.max(1, extent.r - extent.l);
@@ -151,13 +154,13 @@ function beginOverviewWave() {
   announcement.textContent = 'Portfolio expanded.';
   // Warm the small preview images quickly so the ripple reaches the pictures,
   // even when someone scrolls to the overview immediately on a cold visit.
-  previewQueue.setConcurrency(innerWidth < 620 ? 16 : 24);
+  previewQueue.setConcurrency(innerWidth < 620 ? 8 : 24);
   const pauseStarted = performance.now();
   const playWhenReady = () => {
     const visible = items.filter(item => item.rendered);
     const ready = visible.filter(item => item.imageLevel).length;
     const elapsed = performance.now() - pauseStarted;
-    if (elapsed < 1000 || (elapsed < 4000 && visible.length && ready / visible.length < .9)) {
+    if (elapsed < 1000 || (elapsed < (innerWidth < 620 ? 2500 : 4000) && visible.length && ready / visible.length < .9)) {
       waveTimer = setTimeout(playWhenReady, 100);
       return;
     }
@@ -603,7 +606,10 @@ const pair = () => { const [a, b] = [...points.values()]; return { x: (a.x + b.x
 function resetGesture() { points.clear(); gesture = null; flickTracker.reset(); delete view.dataset.dragging; }
 view.addEventListener('pointerdown', event => {
   if (event.target.closest('a,.portfolio-theme-toggle') || event.button > 0 || dialog.open) return;
-  if (mode === 'explore' && !waveComplete) { event.preventDefault(); return; }
+  if (mode === 'explore' && !waveComplete) {
+    if (event.pointerType === 'touch') finishWave();
+    else { event.preventDefault(); return; }
+  }
   if (mode === 'intro' && event.pointerType === 'touch') {
     stopIntro();
     const point = { x: event.clientX, y: event.clientY };
