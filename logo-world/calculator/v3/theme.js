@@ -3,7 +3,7 @@
  const key='sp_theme';
  const system=matchMedia('(prefers-color-scheme: dark)');
  let explicit=null;
- try{const saved=JSON.parse(localStorage.getItem('sp_workspace_v2'));const value=saved?.theme||localStorage.getItem(key);if(['parchment','indigo','midnight'].includes(value))explicit=value;}catch{try{explicit=localStorage.getItem(key);}catch{}}
+ try{const saved=JSON.parse(localStorage.getItem('sp_workspace_v2'));const value=localStorage.getItem(key)||saved?.theme;if(['parchment','indigo','midnight'].includes(value))explicit=value;}catch{try{explicit=localStorage.getItem(key);}catch{}}
  function apply(theme,notify=false){
   const dark=theme==='midnight'||theme==='indigo';
   const value=dark?'midnight':'parchment';

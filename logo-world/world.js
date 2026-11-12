@@ -1,7 +1,7 @@
 import { photoFrame, EMPTY_IMAGE } from './photos.mjs?v=momentum-images-1';
 import { mountGallery } from './gallery.mjs?v=momentum-images-1';
 import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
-import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=locked-board-1';
+import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=raised-header-2';
 import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=hoodie-growth-1';
 import { SCROLL_FEEL, inputTime, damp, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
@@ -552,7 +552,7 @@ let gesture = null;
 const pair = () => { const [a, b] = [...points.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, distance: Math.hypot(a.x - b.x, a.y - b.y) }; };
 function resetGesture() { points.clear(); gesture = null; flickTracker.reset(); delete view.dataset.dragging; }
 view.addEventListener('pointerdown', event => {
-  if (event.target.closest('a') || event.button > 0 || dialog.open) return;
+  if (event.target.closest('a,.portfolio-theme-toggle') || event.button > 0 || dialog.open) return;
   if (mode === 'intro' && event.pointerType === 'touch') {
     stopIntro();
     const point = { x: event.clientX, y: event.clientY };
@@ -659,7 +659,7 @@ view.addEventListener('focusin', event => { const item = items.find(item => item
 view.addEventListener('focusout', event => { if (!event.relatedTarget?.closest('.world-item')) living.clear(); });
 view.addEventListener('dragstart', event => event.preventDefault());
 view.addEventListener('dblclick', event => {
-  if (mode === 'explore' && !event.target.closest('.world-item,a')) { event.preventDefault(); zoom(1.8, { x: event.clientX, y: event.clientY }, true); }
+  if (mode === 'explore' && !event.target.closest('.world-item,a,.portfolio-theme-toggle')) { event.preventDefault(); zoom(1.8, { x: event.clientX, y: event.clientY }, true); }
 });
 view.addEventListener('click', event => {
   const item = event.target.closest('.world-item');
@@ -688,7 +688,7 @@ document.querySelector('.skip-link').addEventListener('click', event => {
   items[0].element.focus({ preventScroll: true });
 });
 addEventListener('keydown', event => {
-  if (dialog.open || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (dialog.open || event.ctrlKey || event.metaKey || event.altKey || event.target.closest('.portfolio-theme-toggle')) return;
   if (mode === 'intro') {
     const amount = { ArrowDown: .065, ArrowUp: -.065, PageDown: .23, PageUp: -.23, ' ': .23, End: 1, Home: -1 }[event.key];
     if (amount !== undefined) { event.preventDefault(); advanceIntro(amount); }

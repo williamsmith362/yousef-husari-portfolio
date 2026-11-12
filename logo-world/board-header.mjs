@@ -1,6 +1,6 @@
 // Matched to the blank oval in the supplied board screenshot, relative to
 // the first backpack. These coordinates belong to the board, not the screen.
-export const BOARD_HEADER_AREA = Object.freeze({ x: -45, y: -535, w: 640, h: 200 });
+export const BOARD_HEADER_AREA = Object.freeze({ x: -109, y: -675, w: 768, h: 240 });
 
 export function boardHeaderPose(camera, pivot, dimensions) {
   const width = Math.max(1, dimensions.width);

@@ -1,0 +1,61 @@
+:root {
+  --soft: #f6f6f4;
+  --theme-hint-paper: rgba(255, 255, 255, .94);
+  --theme-hint-ink: #666;
+}
+
+:root[data-theme="midnight"] {
+  color-scheme: dark;
+  --paper: #171717;
+  --ink: #eeeee9;
+  --muted: #a7a7a0;
+  --soft: #232322;
+  --theme-hint-paper: rgba(23, 23, 23, .94);
+  --theme-hint-ink: #a7a7a0;
+}
+
+/* Keep the original navigation height while allowing the 40px hit area. */
+.site-header nav { align-items: center; height: 24.96px; }
+.portfolio-theme-toggle {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--ink);
+  background: none;
+  cursor: pointer;
+  transition: opacity .15s, background-color .15s;
+}
+.portfolio-theme-toggle:hover { background: var(--soft); }
+.portfolio-theme-toggle:focus-visible { outline: 1.5px solid var(--ink); outline-offset: 4px; }
+.portfolio-theme-toggle svg { width: 19px; height: 19px; stroke: currentColor; stroke-width: 1.5; fill: none; }
+.portfolio-theme-toggle .theme-sun { display: none; }
+[data-theme="midnight"] .portfolio-theme-toggle .theme-sun { display: block; }
+[data-theme="midnight"] .portfolio-theme-toggle .theme-moon { display: none; }
+
+::selection { background: var(--ink); color: var(--paper); }
+.site-header a:hover, .site-header a[aria-current="page"] { color: var(--ink); }
+dialog, dialog::backdrop, .world-gallery, .world-gallery::backdrop { background: var(--paper); color: var(--ink); }
+.gallery-count, #copy-email, #email-feedback { color: var(--muted); }
+#copy-email:hover { color: var(--ink); }
+.skip-link { background: var(--ink); color: var(--paper); }
+.world-scroll-hint { background: var(--theme-hint-paper); color: var(--theme-hint-ink); }
+[data-theme="midnight"] .world-drag-hint { background: rgba(23, 23, 23, .16); }
+[data-theme="midnight"] .world-drag-hint-label { background: rgba(35, 35, 34, .94); color: var(--ink); }
+
+@media (max-width:620px) {
+  .site-header nav { height: calc(clamp(10px, 3vw, 14.3px) * 1.6); }
+  .portfolio-theme-toggle { width: 36px; }
+  .portfolio-theme-toggle svg { width: 18px; height: 18px; }
+}
+@media (max-width:360px) {
+  .site-header nav { gap: 5px; }
+  .portfolio-theme-toggle { width: 32px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .portfolio-theme-toggle { transition: none; }
+}
