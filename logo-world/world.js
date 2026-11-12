@@ -6,7 +6,7 @@ import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from '.
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=hoodie-growth-1';
 import { SCROLL_FEEL, inputTime, damp, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
 import { createNativeIntroScroll } from './native-scroll.mjs?v=photo-wheel-1';
-import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=momentum-images-1';
+import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=wave-load-2';
 
 const view = document.querySelector('.world-viewport');
 const plane = document.querySelector('.world-plane');
@@ -41,6 +41,7 @@ const flickTracker = createVelocityTracker();
 const wheelResponse = createWheelSmoothing();
 let dragHintActive = false, dragHintShown = false, dragHintUsedZoom = false, dragHintUsedDrag = false;
 let dragHintConsumed = false;
+let waveComplete = false, waveTimer = 0, hintDistance = 0, hintEvents = 0;
 try { dragHintConsumed = window.sessionStorage.getItem('portfolio-zoom-drag-hint-used') === '1'; } catch {}
 const worldCellSize = 512;
 let spatialGrid = null;
@@ -73,7 +74,7 @@ const items = projects.flatMap(project => project.items.map(item => {
   return { imageElement, previewElement: null, imageLevel: null, previewRetryAt: 0, detailUsedAt: 0, frame: element.querySelector('.product-photo'), ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
 }));
 
-const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && !dialog.open && !cameraFrame, reduced: () => reduce.matches, onDetail: scheduleImageQuality, reservedArea: BOARD_HEADER_AREA });
+const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && waveComplete && !dialog.open && !cameraFrame, reduced: () => reduce.matches, onDetail: scheduleImageQuality, reservedArea: BOARD_HEADER_AREA });
 
 function minimumZoom() { return fitCamera(extent, size).z; }
 function introScrollRange() { return size.w < 620 ? SCROLL_FEEL.introMobilePixels : SCROLL_FEEL.introDesktopPixels; }
@@ -109,12 +110,61 @@ function markDragHintAction(action) {
 }
 
 function showDragHint() {
-  if (!dragHint || dialog.open || dragHintActive || dragHintConsumed) return;
+  if (!waveComplete || hintDistance < 140 || hintEvents < 2 || !dragHint || dialog.open || dragHintActive || dragHintConsumed) return;
   dragHintActive = true;
   dragHintShown = true;
   dragHint.style.setProperty('--hint-opacity', '1');
   dragHint.style.setProperty('--hint-blur', '9px');
   dragHint.classList.add('is-visible');
+}
+
+function considerDragHint(distance) {
+  if (!waveComplete || !Number.isFinite(distance) || distance <= 0) return;
+  hintDistance += distance;
+  hintEvents++;
+  showDragHint();
+}
+
+function beginOverviewWave() {
+  waveComplete = false;
+  hintDistance = 0; hintEvents = 0;
+  clearTimeout(waveTimer);
+  const release = () => {
+    waveComplete = true;
+    previewQueue.setConcurrency(innerWidth < 620 ? 4 : 6);
+    view.dataset.wave = 'ready';
+    navigationReadyAt = performance.now() + 250;
+    announcement.textContent = 'Portfolio ready to explore.';
+    scheduleImageQuality();
+  };
+  if (reduce.matches) { release(); return; }
+  // Each photograph gets its own point along a top-left to bottom-right sweep.
+  const width = Math.max(1, extent.r - extent.l);
+  const height = Math.max(1, extent.b - extent.t);
+  view.style.setProperty('--wave-lift', (-5 / camera.z).toFixed(2) + 'px');
+  for (const item of items) {
+    const x = clamp01((item.x + item.width / 2 - extent.l) / width);
+    const y = clamp01((item.y + item.height / 2 - extent.t) / height);
+    item.frame.style.setProperty('--wave-delay', Math.round((x + y) / 2 * 1050) + 'ms');
+  }
+  view.dataset.wave = 'pause';
+  announcement.textContent = 'Portfolio expanded.';
+  // Warm the small preview images quickly so the ripple reaches the pictures,
+  // even when someone scrolls to the overview immediately on a cold visit.
+  previewQueue.setConcurrency(innerWidth < 620 ? 16 : 24);
+  const pauseStarted = performance.now();
+  const playWhenReady = () => {
+    const visible = items.filter(item => item.rendered);
+    const ready = visible.filter(item => item.imageLevel).length;
+    const elapsed = performance.now() - pauseStarted;
+    if (elapsed < 1000 || (elapsed < 4000 && visible.length && ready / visible.length < .9)) {
+      waveTimer = setTimeout(playWhenReady, 100);
+      return;
+    }
+    view.dataset.wave = 'playing';
+    waveTimer = setTimeout(release, 1500);
+  };
+  waveTimer = setTimeout(playWhenReady, 1000);
 }
 
 function updateDragHint() {
@@ -341,8 +391,7 @@ function finishIntro() {
   buildSpatialGrid();
   view.dataset.mode = mode;
   view.addEventListener('wheel', handleWorldWheel, { passive: false });
-  announcement.textContent = 'Portfolio expanded.';
-  navigationReadyAt = performance.now() + 220;
+  beginOverviewWave();
 }
 
 function animateIntro(time) {
@@ -521,6 +570,7 @@ function measure(remeasureLayout = true) {
 addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => measure(Math.abs(innerWidth - layoutWidth) > 1)); });
 function handleWorldWheel(event) {
   if (dialog.open) return;
+  if (!waveComplete) { event.preventDefault(); return; }
   living.clear();
   event.preventDefault();
   const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? size.h : 1;
@@ -531,7 +581,7 @@ function handleWorldWheel(event) {
   }
   // Ignore only the remaining momentum of the gesture that completed the intro.
   if (performance.now() < navigationReadyAt) { navigationReadyAt = performance.now() + 100; return; }
-  if (mode === 'explore' && !event.ctrlKey && !event.metaKey && camera.z <= minimumZoom() * 1.005 && Math.abs(event.deltaY) > 0) showDragHint();
+  if (mode === 'explore' && !event.ctrlKey && !event.metaKey && camera.z <= minimumZoom() * 1.005 && Math.abs(event.deltaY) > 0) considerDragHint(Math.abs(event.deltaY * factor));
   if (event.ctrlKey || event.metaKey) zoom(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * .01), { x: event.clientX, y: event.clientY }, true, response, 'wheel-zoom');
   else {
     const dx = (event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX) * factor * SCROLL_FEEL.wheelGain;
@@ -553,6 +603,7 @@ const pair = () => { const [a, b] = [...points.values()]; return { x: (a.x + b.x
 function resetGesture() { points.clear(); gesture = null; flickTracker.reset(); delete view.dataset.dragging; }
 view.addEventListener('pointerdown', event => {
   if (event.target.closest('a,.portfolio-theme-toggle') || event.button > 0 || dialog.open) return;
+  if (mode === 'explore' && !waveComplete) { event.preventDefault(); return; }
   if (mode === 'intro' && event.pointerType === 'touch') {
     stopIntro();
     const point = { x: event.clientX, y: event.clientY };
@@ -575,6 +626,7 @@ view.addEventListener('pointerdown', event => {
   else if (gesture) { flickTracker.reset(); gesture.multi = gesture.moved = true; gesture.pair = pair(); }
 });
 view.addEventListener('pointermove', event => {
+  if (mode === 'explore' && !waveComplete) { if (event.cancelable) event.preventDefault(); return; }
   if (!points.has(event.pointerId) || !gesture) {
     if (!points.size && event.pointerType === 'mouse') living.pointer({x:event.clientX,y:event.clientY});
     return;
@@ -614,7 +666,7 @@ view.addEventListener('pointermove', event => {
     else {
       preset = 'custom';
       view.dataset.dragging = 'true';
-      if (camera.z <= minimumZoom() * 1.005 && Math.abs(point.y - gesture.last.y) > .1) showDragHint();
+      if (camera.z <= minimumZoom() * 1.005 && Math.abs(point.y - gesture.last.y) > .1) considerDragHint(Math.abs(point.y - gesture.last.y));
       markDragHintAction('drag');
       moveCamera({ x: camera.x - (point.x - gesture.last.x) / camera.z, y: camera.y - (point.y - gesture.last.y) / camera.z, z: camera.z });
     }
@@ -659,9 +711,11 @@ view.addEventListener('focusin', event => { const item = items.find(item => item
 view.addEventListener('focusout', event => { if (!event.relatedTarget?.closest('.world-item')) living.clear(); });
 view.addEventListener('dragstart', event => event.preventDefault());
 view.addEventListener('dblclick', event => {
+  if (mode === 'explore' && !waveComplete) { event.preventDefault(); return; }
   if (mode === 'explore' && !event.target.closest('.world-item,a,.portfolio-theme-toggle')) { event.preventDefault(); zoom(1.8, { x: event.clientX, y: event.clientY }, true); }
 });
 view.addEventListener('click', event => {
+  if (mode === 'explore' && !waveComplete && !event.target.closest('a,.portfolio-theme-toggle')) { event.preventDefault(); return; }
   const item = event.target.closest('.world-item');
   if (item) { event.preventDefault(); if (event.detail === 0) openGallery(Number(item.dataset.piece), Number(item.dataset.photo), item); }
 });
@@ -689,6 +743,7 @@ document.querySelector('.skip-link').addEventListener('click', event => {
 });
 addEventListener('keydown', event => {
   if (dialog.open || event.ctrlKey || event.metaKey || event.altKey || event.target.closest('.portfolio-theme-toggle')) return;
+  if (mode === 'explore' && !waveComplete) { if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','PageDown','PageUp',' ','End','Home','+','=','-','0'].includes(event.key)) event.preventDefault(); return; }
   if (mode === 'intro') {
     const amount = { ArrowDown: .065, ArrowUp: -.065, PageDown: .23, PageUp: -.23, ' ': .23, End: 1, Home: -1 }[event.key];
     if (amount !== undefined) { event.preventDefault(); advanceIntro(amount); }
@@ -716,7 +771,7 @@ function getGallery() {
 } });
   return gallery;
 }
-function openGallery(pieceIndex, photoIndex, trigger) { getGallery().open(pieceIndex, photoIndex, trigger); }
+function openGallery(pieceIndex, photoIndex, trigger) { if (mode === 'explore' && !waveComplete) return; getGallery().open(pieceIndex, photoIndex, trigger); }
 function closeGallery() { gallery?.close(); }
 
 // Keep the header inside the native scroll hit area without changing its pose.

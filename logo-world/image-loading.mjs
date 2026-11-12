@@ -26,7 +26,7 @@ export async function loadDecodedImage(src, { priority = 0, controller } = {}) {
 // Fetch/decode a few images at a time, prioritizing the active photograph.
 export function createImageQueue({ concurrency = 2, load = loadDecodedImage } = {}) {
   const jobs = new Map();
-  let active = 0, paused = false, scheduled = false;
+  let active = 0, paused = false, scheduled = false, maxConcurrency = concurrency;
   function schedule() {
     if (scheduled) return;
     scheduled = true;
@@ -36,7 +36,7 @@ export function createImageQueue({ concurrency = 2, load = loadDecodedImage } = 
     if (paused) return;
     const pending = [...jobs.values()].filter(job => !job.started).sort((a, b) => a.priority - b.priority);
     for (const job of pending) {
-      if (active >= concurrency) break;
+      if (active >= maxConcurrency) break;
       if (!job.wanted()) { jobs.delete(job.key); continue; }
       job.started = true; active++;
       Promise.resolve().then(() => load(job.src, job)).then(image => {
@@ -61,6 +61,7 @@ export function createImageQueue({ concurrency = 2, load = loadDecodedImage } = 
     },
     cancel(key) { const job=jobs.get(key);jobs.delete(key);job?.controller.abort(); },
     clear() { const old=[...jobs.values()];jobs.clear();for(const job of old)job.controller.abort(); },
+    setConcurrency(value) { maxConcurrency = Math.max(1, value); schedule(); },
     pause() { paused = true; },
     resume() { paused = false; schedule(); },
     stats() { return { active, queued: [...jobs.values()].filter(job => !job.started).length, paused }; }
