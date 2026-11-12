@@ -23,3 +23,7 @@ The published website files match the approved preview runtime, including the fi
 Nine new croc-trimmed raw denim photographs are grouped as one project, with matching cutouts, previews and garment hit masks in Fancy and Simple.
 
 Screen-width changes preserve the selected catalogue photograph, including when the browser clamps the horizontal scroll position during rotation or resizing.
+
+## Patterning Calculator
+
+The Patterning Calculator lives at `/calculator/`, alongside the existing portfolio. The main navigation links to it, and its Back to portfolio link returns to `/`. The calculator's assets, measuring tutorial, PDF references, installation scope and offline service worker remain inside `/calculator/`.

@@ -7,3 +7,9 @@
   .site-header nav { gap: 23px; }
   .site-header .nav-link { font-size: 14.3px; }
 }
+
+/* Keep the calculator in the existing navigation row on small screens. */
+@media (max-width:620px) {
+  .site-header nav { gap: clamp(8px, 2.6vw, 16px); }
+  .site-header .nav-link { font-size: clamp(10px, 3vw, 14.3px); letter-spacing: .7px; }
+}
