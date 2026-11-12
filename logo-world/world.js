@@ -683,7 +683,6 @@ document.addEventListener('gesturechange', event => {
 }, { passive: false });
 document.addEventListener('gestureend', event => { if (!dialog.open) event.preventDefault(); }, { passive: false });
 
-document.querySelectorAll('.world-header [data-home], .world-gallery [data-home]').forEach(link => link.addEventListener('click', returnHome));
 document.querySelector('.skip-link').addEventListener('click', event => {
   event.preventDefault();
   items[0].element.focus({ preventScroll: true });

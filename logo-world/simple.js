@@ -26,7 +26,6 @@ let gallery=null;
 function getGallery() {
   if(!gallery) {
     gallery=mountGallery({pieces,onOpen(){viewerOpen=true;coverQueue.pause();},onClose(){viewerOpen=false;coverQueue.resume();if(pendingMeasure){pendingMeasure=false;measure();}}});
-    gallery.dialog.querySelector('[data-home]').addEventListener('click',event=>{event.preventDefault();gallery.close();window.scrollTo({top:0,behavior:'instant'});});
   }
   return gallery;
 }
