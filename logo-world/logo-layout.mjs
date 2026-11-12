@@ -26,10 +26,14 @@ function collides(a, b) {
 // Keep each project together while following the original pen strokes closely.
 // Small side offsets preserve a natural arrangement without blurring the logo.
 export function makeLogoProjects(pieces) {
+  // New projects gradually widen the strokes while keeping the traced logo.
+  const strokeGrowth = 1 + .8 * (1 - Math.exp(-Math.max(0, pieces.length - 47) / 45));
+  const establishedSeeds = new Map(pieces.filter(piece => Number(piece.id) < 49).map((piece, index) => [piece.id, index]));
   const specifications = pieces.map((piece, index) => {
-    const mainWidth = 155 + noise(index * 7 + 3) * 42;
+    const seed = establishedSeeds.get(piece.id) ?? 47 + Math.max(0, Number(piece.id) - 49);
+    const mainWidth = 155 + noise(seed * 7 + 3) * 42;
     const items = piece.images.map((image, photoIndex) => {
-      let w = photoIndex === 0 ? mainWidth : mainWidth * (.63 + noise(index * 31 + photoIndex * 3) * .26);
+      let w = photoIndex === 0 ? mainWidth : mainWidth * (.63 + noise(seed * 31 + photoIndex * 3) * .26);
       const ratio = photoIndex === 0 ? ratioFor(piece) : Math.max(.62, Math.min(1.65, image.bounds.width / image.bounds.height));
       let h = w / ratio;
       if (photoIndex > 0) {
@@ -40,14 +44,14 @@ export function makeLogoProjects(pieces) {
       const weight = Math.hypot(w, h) * .65 + 8;
       return { image, photoIndex, w, h, ratio, weight };
     });
-    return { piece, index, items, weight: items.reduce((sum, item) => sum + item.weight, 0) + 110 };
+    return { piece, index, seed, items, weight: items.reduce((sum, item) => sum + item.weight, 0) + 110 };
   });
   const totalWeight = specifications.reduce((sum, p) => sum + p.weight, 0);
   const totalLength = curves.reduce((sum, c) => sum + c.length, 0);
-  let scale = totalWeight / totalLength * .90;
+  let scale = totalWeight / totalLength * .90 / Math.sqrt(strokeGrowth);
   let finalProjects;
 
-  for (let attempt = 0; attempt < 22; attempt++) {
+  for (let attempt = 0; attempt < 28; attempt++) {
     const allocations = curves.map(() => []);
     const loads = curves.map(() => 0);
     const remaining = specifications.slice(1);
@@ -90,8 +94,8 @@ export function makeLogoProjects(pieces) {
             const p = sample(curve, distance);
             // Keep the cream utility group on the left-hand curve instead of
             // letting its supporting views drift away from the trouser cover.
-            const sideSpread = specification.piece.id === '03' ? .7 : 1;
-            const side = ((noise(specification.index * 101 + item.photoIndex * 17 + 7) - .5) * item.w * .45 + (trial ? Math.sin(trial * 2.4) * item.w * .25 : 0)) * sideSpread;
+            const sideSpread = (specification.piece.id === '03' ? .7 : 1) * strokeGrowth;
+            const side = ((noise(specification.seed * 101 + item.photoIndex * 17 + 7) - .5) * item.w * .45 + (trial ? Math.sin(trial * 2.4) * item.w * .25 : 0)) * sideSpread;
             const x = p.x * scale - p.ty * side - item.w / 2;
             const y = p.y * scale + p.tx * side - item.h / 2;
             const box = { x, y, w: item.w, h: item.h };
@@ -126,5 +130,6 @@ export function makeLogoProjects(pieces) {
     return { piece: project.piece, index: project.index, x, y, w, h, items: positions.map(item => ({ ...item, x: item.x - x, y: item.y - y })) };
   });
 }
+
 
 

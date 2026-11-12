@@ -3,7 +3,7 @@ import { mountGallery } from './gallery.mjs?v=momentum-images-1';
 import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
 import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=locked-board-1';
 import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
-import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=clean-monogram-1';
+import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=hoodie-growth-1';
 import { SCROLL_FEEL, inputTime, damp, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
 import { createNativeIntroScroll } from './native-scroll.mjs?v=photo-wheel-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=momentum-images-1';
@@ -23,7 +23,7 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
 const projects = makeProjects(pieces);
 const extent = getExtent(projects);
-const sourceCovers = Array.from(measurement.querySelectorAll('button.piece'));
+const sourceCovers = Array.from(measurement.querySelectorAll('button.piece')).sort((a, b) => Number(a.dataset.piece) - Number(b.dataset.piece));
 const clamp01 = n => Math.max(0, Math.min(1, n));
 const smooth = n => { const t = clamp01(n); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a + (b - a) * t;
@@ -736,5 +736,6 @@ const nativeIntro = createNativeIntroScroll({ view,
 
 measure();
 document.fonts.ready.then(() => measure(true));
+
 
 
