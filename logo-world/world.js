@@ -534,6 +534,14 @@ function measure(remeasureLayout = true) {
 }
 
 addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => measure(Math.abs(innerWidth - layoutWidth) > 1)); });
+function isVerticalWheelZoom(event) {
+  if (event.shiftKey || event.ctrlKey || event.metaKey || !event.deltaY) return false;
+  const vertical = Math.abs(event.deltaY);
+  const horizontal = Math.abs(event.deltaX);
+  // A vertical-only wheel zooms. Horizontal or two-axis trackpad gestures keep
+  // their existing panning behavior, and the canvas can always be dragged.
+  return horizontal <= Math.max(2, vertical * .12);
+}
 function handleWorldWheel(event) {
   if (dialog.open) return;
   if (!overviewReady) { event.preventDefault(); return; }
@@ -548,7 +556,7 @@ function handleWorldWheel(event) {
   // Ignore only the remaining momentum of the gesture that completed the intro.
   if (performance.now() < navigationReadyAt) { navigationReadyAt = performance.now() + 100; return; }
   if (mode === 'explore' && !event.ctrlKey && !event.metaKey && camera.z <= minimumZoom() * 1.005 && Math.abs(event.deltaY) > 0) considerDragHint(Math.abs(event.deltaY * factor));
-  if (event.ctrlKey || event.metaKey) zoom(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * .01), { x: event.clientX, y: event.clientY }, true, response, 'wheel-zoom');
+  if (event.ctrlKey || event.metaKey || isVerticalWheelZoom(event)) zoom(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * .01), { x: event.clientX, y: event.clientY }, true, response, 'wheel-zoom');
   else {
     const dx = (event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX) * factor * SCROLL_FEEL.wheelGain;
     const dy = (event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY) * factor * SCROLL_FEEL.wheelGain;
