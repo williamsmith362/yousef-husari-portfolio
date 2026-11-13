@@ -56,4 +56,4 @@
 }
 @media(prefers-reduced-motion: reduce) { .choice-card { transition: none; } }
 
-.choice-identity > span { font-family: var(--font); font-weight: 700; letter-spacing: .08545em; line-height: 1.6; }
+.choice-identity > span { font-family: "Playfair Display", Georgia, serif; font-weight: 400; letter-spacing: -.0206em; line-height: 1.6; }
