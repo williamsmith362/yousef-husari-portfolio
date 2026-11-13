@@ -16,7 +16,7 @@
 .choice-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); grid-template-rows: repeat(3,minmax(0,1fr)); gap: 7px; padding: 24px 44px; }
 .choice-grid > span { display: flex; justify-content: center; align-items: center; min-height: 0; border-bottom: 1px solid #d9d9d680; }
 .choice-grid img { width: 100%; height: 100%; min-height: 0; object-fit: contain; padding: 4px 8px; }
-.choice-canvas { display: grid; grid-template: minmax(0,1fr) / minmax(0,1fr); place-items: center; padding: 14px 36px; }
+.choice-canvas { display: grid; grid-template: minmax(0,1fr) / minmax(0,1fr); place-items: center; padding: 5px 6px; }
 .choice-logo-canvas { display: block; min-width: 0; min-height: 0; width: 100%; height: 100%; overflow: visible; }
 .choice-card-copy { padding: 22px 24px 24px; }
 .choice-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 24px; font-family: 'Playfair Display', Georgia, serif; }
@@ -35,7 +35,7 @@
  .choice-preview { height: 152px; }
  .choice-grid { padding: 15px 13px; gap: 4px; }
  .choice-grid img { padding: 2px; }
- .choice-canvas { padding: 10px 4px; }
+ .choice-canvas { padding: 3px 0; }
  .choice-card-copy { padding: 16px; }
  .choice-title { font-size: 23px; }
  .choice-card p { font-size: 12px; }
