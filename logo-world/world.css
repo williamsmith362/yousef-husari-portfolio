@@ -76,14 +76,3 @@ html.gallery-open { overflow: hidden; }
   stroke-linejoin: round;
 }
 
-/* Each photograph moves in a diagonal ripple after the overview settles. */
-@keyframes portfolio-overview-wave {
-  0%, 100% { transform: translateY(0) scale(1); }
-  42% { transform: translateY(var(--wave-lift, -80px)) scale(1.5); }
-}
-.world-viewport[data-wave="playing"] .world-item .product-photo {
-  animation: portfolio-overview-wave 450ms ease-in-out var(--wave-delay, 0ms) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .world-viewport[data-wave="playing"] .world-item .product-photo { animation: none; }
-}
