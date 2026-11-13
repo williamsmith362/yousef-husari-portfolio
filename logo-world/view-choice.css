@@ -14,9 +14,9 @@
 .choice-card:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
 .choice-preview { height: 230px; box-sizing: border-box; background: #f0f0ec; overflow: hidden; pointer-events: none; }
 .choice-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); grid-template-rows: repeat(3,minmax(0,1fr)); gap: 7px; padding: 24px 44px; }
-.choice-grid > span { display: flex; justify-content: center; align-items: center; min-height: 0; border-bottom: 1px solid #d9d9d680; }
+.choice-grid > span { display: flex; justify-content: center; align-items: center; min-height: 0; border: 0; box-shadow: none; }
 .choice-grid img { width: 100%; height: 100%; min-height: 0; object-fit: contain; padding: 4px 8px; }
-.choice-canvas { display: grid; grid-template: minmax(0,1fr) / minmax(0,1fr); place-items: center; padding: 5px 6px; }
+.choice-canvas { display: grid; grid-template: minmax(0,1fr) / minmax(0,1fr); place-items: center; padding: 24px 44px; }
 .choice-logo-canvas { display: block; min-width: 0; min-height: 0; width: 100%; height: 100%; overflow: visible; }
 .choice-card-copy { padding: 22px 24px 24px; }
 .choice-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 24px; font-family: 'Playfair Display', Georgia, serif; }
@@ -35,7 +35,7 @@
  .choice-preview { height: 152px; }
  .choice-grid { padding: 15px 13px; gap: 4px; }
  .choice-grid img { padding: 2px; }
- .choice-canvas { padding: 3px 0; }
+ .choice-canvas { padding: 15px 13px; }
  .choice-card-copy { padding: 16px; }
  .choice-title { font-size: 23px; }
  .choice-card p { font-size: 12px; }
@@ -48,7 +48,7 @@
  .choice-eyebrow { display: none; }
  .view-choice h1 { font-size: 28px; margin-bottom: 18px; }
  .choice-preview { height: 125px; }
- .choice-grid { padding: 8px 45px; }
+ .choice-grid, .choice-canvas { padding: 8px 45px; }
  .choice-card-copy { padding: 12px 20px; }
  .choice-title { font-size: 20px; }
  .choice-card p { margin-top: 4px; }
