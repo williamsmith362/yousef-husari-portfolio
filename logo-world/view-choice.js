@@ -29,7 +29,7 @@ async function enterFancy(event) {
   warming.clear();
   // Keep the chooser visible until the world module has mounted successfully.
   try {
-    await import('./world.js?v=mouse-wheel-1');
+    await import('./world.js?v=mouse-wheel-3');
     chooser.hidden = true;
     document.body.classList.remove('choosing-view');
     history.replaceState(null, '', '/?view=fancy');

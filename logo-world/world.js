@@ -39,6 +39,7 @@ let cameraInput = null;
 let cameraVelocity = { x: 0, y: 0 };
 const flickTracker = createVelocityTracker();
 const wheelResponse = createWheelSmoothing();
+let wheelGestureMode = null, wheelGestureLastAt = 0, wheelProbeTimer = 0, wheelProbeInput = null;
 let dragHintActive = false, dragHintShown = false, dragHintUsedZoom = false, dragHintUsedDrag = false;
 let dragHintConsumed = false;
 let overviewReady = false, hintDistance = 0, hintEvents = 0;
@@ -534,13 +535,83 @@ function measure(remeasureLayout = true) {
 }
 
 addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => measure(Math.abs(innerWidth - layoutWidth) > 1)); });
-function isVerticalWheelZoom(event) {
-  if (event.shiftKey || event.ctrlKey || event.metaKey || !event.deltaY) return false;
+function wheelInput(event, time = performance.now()) {
+  return { deltaX: event.deltaX, deltaY: event.deltaY, deltaMode: event.deltaMode, shiftKey: event.shiftKey, clientX: event.clientX, clientY: event.clientY, time };
+}
+function applyExploreWheel(input, action) {
+  if (dialog.open || mode !== 'explore') return;
+  const factor = input.deltaMode === 1 ? 16 : input.deltaMode === 2 ? size.h : 1;
+  const response = wheelResponse(input, performance.now());
+  if (action === 'zoom') {
+    zoom(Math.exp(-Math.max(-100, Math.min(100, input.deltaY)) * .01), { x: input.clientX, y: input.clientY }, true, response, 'wheel-zoom');
+    return;
+  }
+  const dx = (input.shiftKey && input.deltaX === 0 ? input.deltaY : input.deltaX) * factor * SCROLL_FEEL.wheelGain;
+  const dy = (input.shiftKey && input.deltaX === 0 ? 0 : input.deltaY) * factor * SCROLL_FEEL.wheelGain;
+  preset = 'custom';
+  if (dx || dy) markDragHintAction('drag');
+  const origin = cameraInput === 'wheel-pan' && cameraTarget ? cameraTarget : camera;
+  moveCamera({ x: origin.x + dx / origin.z, y: origin.y + dy / origin.z, z: origin.z }, true, response, 'wheel-pan');
+}
+function routeExploreWheel(event, now) {
+  const input = wheelInput(event, now);
+  const gap = now - wheelGestureLastAt;
+  if (gap > 160) {
+    clearTimeout(wheelProbeTimer);
+    wheelProbeTimer = 0;
+    wheelProbeInput = null;
+    wheelGestureMode = null;
+  }
+  wheelGestureLastAt = now;
+  if (event.ctrlKey || event.metaKey || event.deltaMode !== 0) {
+    wheelGestureMode = 'zoom';
+    applyExploreWheel(input, 'zoom');
+    return;
+  }
   const vertical = Math.abs(event.deltaY);
   const horizontal = Math.abs(event.deltaX);
-  // A vertical-only wheel zooms. Horizontal or two-axis trackpad gestures keep
-  // their existing panning behavior, and the canvas can always be dragged.
-  return horizontal <= Math.max(2, vertical * .12);
+  if (event.shiftKey || horizontal > Math.max(2, vertical * .12)) {
+    if (wheelProbeInput) applyExploreWheel(wheelProbeInput, 'pan');
+    clearTimeout(wheelProbeTimer);
+    wheelProbeTimer = 0;
+    wheelProbeInput = null;
+    wheelGestureMode = 'pan';
+    applyExploreWheel(input, 'pan');
+    return;
+  }
+  if (wheelGestureMode) {
+    applyExploreWheel(input, wheelGestureMode);
+    return;
+  }
+  if (wheelProbeInput && now - wheelProbeInput.time <= 36) {
+    const first = wheelProbeInput;
+    clearTimeout(wheelProbeTimer);
+    wheelProbeTimer = 0;
+    wheelProbeInput = null;
+    wheelGestureMode = 'pan';
+    applyExploreWheel(first, 'pan');
+    applyExploreWheel(input, 'pan');
+    return;
+  }
+  if (wheelProbeInput) {
+    const first = wheelProbeInput;
+    clearTimeout(wheelProbeTimer);
+    wheelProbeTimer = 0;
+    wheelProbeInput = null;
+    wheelGestureMode = 'zoom';
+    applyExploreWheel(first, 'zoom');
+    applyExploreWheel(input, 'zoom');
+    return;
+  }
+  wheelProbeInput = input;
+  wheelProbeTimer = setTimeout(() => {
+    const pending = wheelProbeInput;
+    wheelProbeInput = null;
+    wheelProbeTimer = 0;
+    if (!pending) return;
+    wheelGestureMode = 'zoom';
+    applyExploreWheel(pending, 'zoom');
+  }, 36);
 }
 function handleWorldWheel(event) {
   if (dialog.open) return;
@@ -548,23 +619,14 @@ function handleWorldWheel(event) {
   living.clear();
   event.preventDefault();
   const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? size.h : 1;
-  const response = wheelResponse(event, performance.now());
   if (mode === 'intro') {
-    if (!event.ctrlKey && !event.metaKey) advanceIntro(event.deltaY * factor / introScrollRange(), { response });
+    if (!event.ctrlKey && !event.metaKey) advanceIntro(event.deltaY * factor / introScrollRange(), { response: wheelResponse(event, performance.now()) });
     return;
   }
   // Ignore only the remaining momentum of the gesture that completed the intro.
   if (performance.now() < navigationReadyAt) { navigationReadyAt = performance.now() + 100; return; }
   if (mode === 'explore' && !event.ctrlKey && !event.metaKey && camera.z <= minimumZoom() * 1.005 && Math.abs(event.deltaY) > 0) considerDragHint(Math.abs(event.deltaY * factor));
-  if (event.ctrlKey || event.metaKey || isVerticalWheelZoom(event)) zoom(Math.exp(-Math.max(-100, Math.min(100, event.deltaY)) * .01), { x: event.clientX, y: event.clientY }, true, response, 'wheel-zoom');
-  else {
-    const dx = (event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX) * factor * SCROLL_FEEL.wheelGain;
-    const dy = (event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY) * factor * SCROLL_FEEL.wheelGain;
-    preset = 'custom';
-    if (dx || dy) markDragHintAction('drag');
-    const origin = cameraInput === 'wheel-pan' && cameraTarget ? cameraTarget : camera;
-    moveCamera({ x: origin.x + dx / origin.z, y: origin.y + dy / origin.z, z: origin.z }, true, response, 'wheel-pan');
-  }
+  routeExploreWheel(event, performance.now());
 }
 // Let native wheel/trackpad deltas and their momentum reach the opening scroller.
 view.addEventListener('wheel', () => {
