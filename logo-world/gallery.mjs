@@ -18,6 +18,11 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
   const dialog=document.querySelector('.world-gallery');
   const rail=dialog.querySelector('.gallery-rail');
   const count=dialog.querySelector('.gallery-count');
+  const descriptions={"04": "crocodile-textured backpack with alyx buckles.", "02": "black denim jacket with red lining.", "49": "french terry hoodie, based on a favorite.", "06": "canvas messenger bag with tied strap.", "35": "quilted canvas bag with rose lining.", "20": "canvas pants with striped pocket lining.", "21": "black canvas jacket with copper hardware.", "27": "green canvas carpenter pants with bronze hardware.", "25": "heavy-nep denim with plaid lining.", "03": "cream canvas pants with workwear pockets.", "47": "cream canvas pants with button fly.", "22": "indigo shorts with double-button waistband.", "09": "hybrid pants combining canvas and denim.", "10": "black denim with crocodile pocket accents.", "41": "raw denim with plaid-lined pockets.", "24": "black selvedge jeans with welt pockets.", "42": "black selvedge jeans with buckle back.", "43": "raw denim with blue floral lining.", "44": "black carpenter pants with red floral lining.", "01": "selvedge denim with contrasting stitching.", "34": "handmade denim cushion cover with pleats.", "48": "slub denim jeans with crocodile accents."};
+  const caption=document.createElement('p');
+  caption.className='gallery-description';
+  caption.setAttribute('aria-live','polite');
+  dialog.querySelector('.gallery-footer').before(caption);
   const previous=dialog.querySelector('#gallery-previous');
   const next=dialog.querySelector('#gallery-next');
   const slides=photographs.map((photo,index)=>{
@@ -76,6 +81,8 @@ export function mountGallery({ pieces, onOpen = () => {}, onClose = () => {} }) 
     if(visiblePhoto>=0 && visiblePhoto!==destination) slides[visiblePhoto].setAttribute('aria-hidden','true');
     slides[destination].setAttribute('aria-hidden','false');
     visiblePhoto=destination;
+    caption.textContent=descriptions[photographs[destination].piece.id] || '';
+    caption.hidden=!caption.textContent;
     count.textContent=String(destination+1).padStart(2,'0')+' / '+photographs.length;
     previous.disabled=destination===0;next.disabled=destination===slides.length-1;
   }
