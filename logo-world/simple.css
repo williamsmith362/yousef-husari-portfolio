@@ -5,3 +5,6 @@ body { display: block; }
 .photo-portfolio .piece { cursor: pointer; }
 .photo-portfolio .piece:focus-visible { outline:1px solid #777; outline-offset:5px; }
 @media(max-width:620px) { .simple-header + .photo-portfolio { margin-top:24px; } }
+
+@media (hover:hover) { .photo-portfolio .piece .product-photo { transition:transform .38s cubic-bezier(.2,.7,.2,1); } .photo-portfolio .piece:hover .product-photo, .photo-portfolio .piece:focus-visible .product-photo { transform:scale(1.08); } .photo-portfolio .piece:hover .hover-caption, .photo-portfolio .piece:focus-visible .hover-caption { opacity:1; } }
+@media (prefers-reduced-motion:reduce) { .photo-portfolio .piece .product-photo { transition:none; } }

@@ -76,3 +76,6 @@ html.gallery-open { overflow: hidden; }
   stroke-linejoin: round;
 }
 
+
+.world-item .hover-caption { font-size: 10px; }
+.world-item[data-emphasized="true"] .hover-caption { opacity:1; }

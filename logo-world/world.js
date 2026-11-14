@@ -1,3 +1,4 @@
+import { descriptions } from './captions.mjs';
 import { photoFrame, EMPTY_IMAGE } from './photos.mjs?v=momentum-images-1';
 import { mountGallery } from './gallery.mjs?v=momentum-images-1';
 import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
@@ -66,6 +67,7 @@ const items = projects.flatMap(project => project.items.map(item => {
   element.style.width = item.w + 'px';
   element.setAttribute('aria-label', 'View ' + project.piece.name + ', ' + item.image.label + ', image ' + (item.photoIndex + 1) + ' of ' + project.items.length);
   if (item.photoIndex > 0) element.append(photoFrame(item.image, item.ratio, true, true));
+  const caption=document.createElement('span'); caption.className='hover-caption'; caption.textContent=descriptions[project.piece.id] || ''; caption.setAttribute('aria-hidden','true'); element.querySelector('.product-photo').append(caption);
   const imageElement = element.querySelector('img');
   imageElement.src = EMPTY_IMAGE;
   imageElement.decoding = 'async';

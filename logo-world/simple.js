@@ -1,3 +1,4 @@
+import { descriptions } from './captions.mjs';
 import { mountGallery } from './gallery.mjs?v=momentum-images-1';
 import { orderCatalogProjects } from './catalog-order.mjs?v=grouped-trousers-1';
 import { EMPTY_IMAGE } from './photos.mjs?v=momentum-images-1';
@@ -10,6 +11,7 @@ const coverLoaded=new Set();
 let viewerOpen=false, observer=null;
 for (const tile of covers) {
   const image=tile.querySelector('img');
+  const caption=document.createElement('span'); caption.className='hover-caption'; caption.textContent=descriptions[pieces[Number(tile.dataset.piece)].id] || ''; caption.setAttribute('aria-hidden','true'); tile.querySelector('.product-photo').append(caption);
   image.src=EMPTY_IMAGE;image.dataset.imageReady='false';image.decoding='async';
   image.removeAttribute('srcset');
 }
