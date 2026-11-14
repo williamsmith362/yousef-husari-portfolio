@@ -308,3 +308,17 @@ dialog label{font-size:15px}
  .pattern-inspector-graphic .dimension-value{font-size:20px}
 }
 @media print{.pattern-interaction-hint,.result-measure-button span{display:none!important}.interactive-results tbody tr{background:none!important}.interactive-results td{padding-block:6px}.result-measure-button{min-height:0;padding:0;color:inherit!important}}
+
+/* Calculator layout and measurement labels */
+.field-guideline, #fabricTypeNote { display: none; }
+.measurement-grid { row-gap: 24px; }
+@media (max-width: 600px) {
+ .measurement-grid { row-gap: 22px; }
+ #mainFields .field:has(select)>input,
+ #mainFields .field:has(select)>.field-options,
+ #mainFields .field:has(select)>select { grid-row: 2; }
+ #mainFields .field:has(select)>.field-options select { height: 100%; min-height: 54px; }
+ .step-actions { padding-top: 9px; padding-bottom: calc(9px + env(safe-area-inset-bottom)); }
+ .step-actions .button { min-height: 46px; padding-block: 9px; }
+}
+.field .field-label label { font-family: var(--font); font-size: 16px; font-weight: 600; line-height: 1.4; letter-spacing: -0.015em; }

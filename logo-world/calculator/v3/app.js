@@ -33,7 +33,7 @@ function persist(){
  clearTimeout(saveTimer);
  if(otherTabChanged){$('saveState').textContent='Changed in another tab';return;}
  state.pendingInputs=Object.fromEntries([...inputErrors].filter(([k])=>fieldKinds.has(k)&&!$(domId(k)).disabled).map(([k])=>[k,$(domId(k)).value.slice(0,100)]));
- try{localStorage.setItem(KEY,JSON.stringify(state));storageAvailable=true;if($('saveState').textContent!==' Saved on this device')$('saveState').innerHTML='<i></i> Saved on this device';}catch{storageAvailable=false;$('saveState').textContent='Storage unavailable · Export a backup';}
+ try{localStorage.setItem(KEY,JSON.stringify(state));storageAvailable=true;$('saveState').textContent='';$('saveState').hidden=true;}catch{storageAvailable=false;$('saveState').textContent='Storage unavailable · Export a backup';$('saveState').hidden=false;}
 }
 function scheduleSave(){if(!otherTabChanged&&$('saveState').textContent!=='Saving…')$('saveState').textContent='Saving…';clearTimeout(saveTimer);saveTimer=setTimeout(persist,350);}
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4200);}
@@ -325,7 +325,7 @@ window.addEventListener('storage',event=>{
  otherTabChanged=true;clearTimeout(saveTimer);$('syncNotice').hidden=false;$('saveState').textContent='Changed in another tab';
  for(const id of ['saveProfile','newDraft','importBackup','loadExample','profileSelect','deleteProfile'])$(id).disabled=true;
 });
-$('loadLatest').addEventListener('click',()=>{otherTabChanged=false;state=initialState();inputErrors.clear();touched.clear();syncInputs();renderProfiles();render();$('syncNotice').hidden=true;$('saveState').innerHTML='<i></i> Saved on this device';for(const id of ['saveProfile','newDraft','importBackup','loadExample','profileSelect','deleteProfile'])$(id).disabled=false;document.dispatchEvent(new CustomEvent('draft:loaded'));toast('Latest workspace loaded.');});
+$('loadLatest').addEventListener('click',()=>{otherTabChanged=false;state=initialState();inputErrors.clear();touched.clear();syncInputs();renderProfiles();render();$('syncNotice').hidden=true;$('saveState').textContent='';$('saveState').hidden=true;for(const id of ['saveProfile','newDraft','importBackup','loadExample','profileSelect','deleteProfile'])$(id).disabled=false;document.dispatchEvent(new CustomEvent('draft:loaded'));toast('Latest workspace loaded.');});
 $('exportThisTab').addEventListener('click',()=>$('exportBackup').click());
 window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist();});
 syncInputs();renderProfiles();render();persist();
