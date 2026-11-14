@@ -14,16 +14,26 @@
   --theme-hint-ink: #a7a7a0;
 }
 
-/* Reveal the new appearance diagonally without moving the page. */
+/* A wide feathered fade moves in opposite directions for light and dark. */
+@property --theme-reveal {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: -25%;
+}
 html.theme-swoosh::view-transition-old(root),
 html.theme-swoosh::view-transition-new(root) { mix-blend-mode: normal; }
 html.theme-swoosh::view-transition-old(root) { animation: none; }
 html.theme-swoosh::view-transition-new(root) {
-  animation: theme-diagonal-swoosh 280ms cubic-bezier(.2,.65,.3,1) both;
+  --theme-direction: 135deg;
+  mask-image: linear-gradient(var(--theme-direction), #000 calc(var(--theme-reveal) - 20%), transparent calc(var(--theme-reveal) + 20%));
+  animation: theme-diagonal-swoosh 420ms cubic-bezier(.4,0,.2,1) both;
+}
+html.theme-swoosh[data-theme="midnight"]::view-transition-new(root) {
+  --theme-direction: 315deg;
 }
 @keyframes theme-diagonal-swoosh {
-  from { clip-path: polygon(0 0, 0 0, 0 0); }
-  to { clip-path: polygon(0 0, 200% 0, 0 200%); }
+  from { --theme-reveal: -25%; }
+  to { --theme-reveal: 125%; }
 }
 html.theme-swoosh *, html.theme-swoosh *::before, html.theme-swoosh *::after {
   transition-duration: 0s !important;

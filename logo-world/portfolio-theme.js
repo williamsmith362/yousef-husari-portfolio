@@ -18,11 +18,11 @@
  document.addEventListener('DOMContentLoaded',()=>{
   apply(document.documentElement.dataset.theme);
   document.querySelectorAll('.portfolio-theme-toggle').forEach(button=>button.addEventListener('click',()=>{
+   if(document.documentElement.classList.contains('theme-swoosh'))return;
    explicit=document.documentElement.dataset.theme==='parchment'?'midnight':'parchment';
    try{localStorage.setItem(key,explicit);}catch{}
    const next=explicit;
    if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
-    if(document.documentElement.classList.contains('theme-swoosh'))return;
     document.documentElement.classList.add('theme-swoosh');
     const transition=document.startViewTransition(()=>apply(next,true));
     transition.finished.catch(()=>{}).finally(()=>document.documentElement.classList.remove('theme-swoosh'));
