@@ -20,7 +20,13 @@
   document.querySelectorAll('.portfolio-theme-toggle').forEach(button=>button.addEventListener('click',()=>{
    explicit=document.documentElement.dataset.theme==='parchment'?'midnight':'parchment';
    try{localStorage.setItem(key,explicit);}catch{}
-   apply(explicit,true);
+   const next=explicit;
+   if(document.startViewTransition&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
+    if(document.documentElement.classList.contains('theme-swoosh'))return;
+    document.documentElement.classList.add('theme-swoosh');
+    const transition=document.startViewTransition(()=>apply(next,true));
+    transition.finished.catch(()=>{}).finally(()=>document.documentElement.classList.remove('theme-swoosh'));
+   }else apply(next,true);
   }));
  });
  system.addEventListener('change',()=>{if(!explicit)apply(system.matches?'midnight':'parchment',true);});

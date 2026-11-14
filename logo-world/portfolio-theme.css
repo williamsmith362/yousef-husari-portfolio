@@ -14,6 +14,20 @@
   --theme-hint-ink: #a7a7a0;
 }
 
+/* Reveal the new appearance diagonally without moving the page. */
+html.theme-swoosh::view-transition-old(root),
+html.theme-swoosh::view-transition-new(root) { mix-blend-mode: normal; }
+html.theme-swoosh::view-transition-old(root) { animation: none; }
+html.theme-swoosh::view-transition-new(root) {
+  animation: theme-diagonal-swoosh 280ms cubic-bezier(.2,.65,.3,1) both;
+}
+@keyframes theme-diagonal-swoosh {
+  from { clip-path: polygon(0 0, 0 0, 0 0); }
+  to { clip-path: polygon(0 0, 200% 0, 0 200%); }
+}
+html.theme-swoosh *, html.theme-swoosh *::before, html.theme-swoosh *::after {
+  transition-duration: 0s !important;
+}
 /* Fade only theme colors; garment images and movement keep their timing. */
 body,
 dialog,
