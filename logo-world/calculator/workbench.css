@@ -107,3 +107,14 @@
 .guide-key{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:11px;color:var(--muted);margin-bottom:24px}
 @media(max-width:600px){.waist-guide-grid{grid-template-columns:1fr}}
 .guide-side-point{fill:var(--ink);stroke:var(--paper);stroke-width:1}
+.measurement-dialog{width:min(780px,calc(100% - 24px))}
+.popup-display{display:flex;gap:8px;justify-content:flex-end;margin-bottom:20px}
+.popup-display button{font-size:13px;padding:8px 12px;border:1px solid var(--line);border-radius:4px;min-height:40px}
+.popup-display button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+.popup-view-tools{display:flex;align-items:center;justify-content:space-between;gap:16px;color:var(--muted);font-size:12px;margin-top:12px}
+#measurementDialogGraphic{margin:12px 0 20px;padding:16px;border:1px solid var(--line);border-radius:5px;background:var(--soft)}
+#measurementDialogGraphic .current-pattern{height:auto;max-height:480px}
+@media(max-width:600px){.measurement-dialog{padding:20px}#measurementDialogGraphic{padding:8px}.popup-view-tools{font-size:11px}}
+.measurement-dialog{max-height:calc(100dvh - 32px)}
+.measurement-dialog .focus-values{padding-bottom:16px}
+#measurementDialogGraphic .current-pattern{max-height:min(360px,36dvh)}

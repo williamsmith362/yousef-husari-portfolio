@@ -99,7 +99,7 @@ for(const button of document.querySelectorAll('[data-close-workbench]'))button.a
  const dialog=button.closest('dialog');const invalid=dialog.querySelector('input[aria-invalid="true"]');
  if(invalid){invalid.focus();return;}dialog.close();
 });
-for(const dialog of [$('allowancesDialog'),$('patternHelpDialog'),$('waistGuideDialog')])dialog.addEventListener('click',e=>{if(e.target===dialog){const box=dialog.getBoundingClientRect();if(e.clientX<box.left||e.clientX>box.right||e.clientY<box.top||e.clientY>box.bottom)dialog.close();}});
+for(const dialog of [$('allowancesDialog'),$('patternHelpDialog'),$('waistGuideDialog'),$('measurementDialog')])dialog.addEventListener('click',e=>{if(e.target===dialog){const box=dialog.getBoundingClientRect();if(e.clientX<box.left||e.clientX>box.right||e.clientY<box.top||e.clientY>box.bottom)dialog.close();}});
 $('patternHelpContent').append(document.querySelector('#draft>.result-tools'),$('copyDraft'));
 
 const fabricAllowances=document.createElement('button');fabricAllowances.type='button';fabricAllowances.className='text-button';fabricAllowances.textContent='Seam allowances ↗';fabricAllowances.onclick=()=>$('allowancesDialog').showModal();$('shrinkFields').closest('details').after(fabricAllowances);

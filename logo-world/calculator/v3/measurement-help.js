@@ -1,3 +1,4 @@
+import {formatLength,formatNumber} from './model.js';
 import {drawMeasurement} from '../measure-visuals.js';
 
 const methods=[
@@ -8,6 +9,9 @@ const methods=[
 const lesson=(definition,visual,steps,note)=>({definition,visual,steps,note});
 
 function guidance(field,mode,belowBand){
+ const unit=document.querySelector('[data-unit=cm][aria-pressed=true]')?'cm':'in';
+ const fractions=document.getElementById('fractionToggle').checked;
+ const f=v=>formatLength(v,unit,fractions), n=v=>formatNumber(v,unit);
   const body=mode==='body-around',flat=mode==='garment-flat';
   switch(field){
     case 'waist':
@@ -20,7 +24,7 @@ function guidance(field,mode,belowBand){
         'Fasten the pants and lay them flat. Align the waistband edges without stretching.',
         'Measure straight across the waistband, from one side to the other.',
         'Enter that width and choose Pants · flat ×2. The calculator doubles it.'
-      ],'Example: 16″ across → enter 16 → 32″ around.');
+      ],`Example: ${f(16)} across → enter ${n(16)} → ${f(32)} around.`);
       return lesson('The full distance around the waistband of your pants.','jeans-waist-around',[
         'Fasten a pair of pants that fits you well.',
         'Run a flexible tape around the inside of the waistband, along its top edge. Follow the front and back all the way around.',
@@ -36,7 +40,7 @@ function guidance(field,mode,belowBand){
         'Fasten the pants and smooth both layers flat without stretching.',
         'Find the fullest seat above the crotch. Measure across both layers, from edge to edge.',
         'Enter that width and choose Pants · flat ×2. The calculator doubles it.'
-      ],'Example: 20″ across → enter 20 → 40″ around.');
+      ],`Example: ${f(20)} across → enter ${n(20)} → ${f(40)} around.`);
       return lesson('The full distance around your pants at the fullest seat.','jeans-seat-around',[
         'Fasten the pants and find the fullest seat above the crotch.',
         'Follow that same level with a flexible tape, across the front and around the back.',
@@ -79,7 +83,7 @@ function guidance(field,mode,belowBand){
         'Lay one leg flat and smooth it without stretching.',
         'Measure straight across, edge to edge, just above the bulky hem fold.',
         'Enter that one flat width in Hem width.'
-      ],'Always enter one flat width here. Example: an 8″ flat hem → enter 8.');
+      ],`Always enter one flat width here. Example: a ${f(8)} flat hem → enter ${n(8)}.`);
     default:
       if(body)return lesson('Use your body for waist and seat, then choose your finished lengths and hem.','body-waist',[
         'Mark where the top of the waistband will sit. Measure your waist and full seat around your body.',

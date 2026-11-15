@@ -112,10 +112,11 @@ function renderProfiles(){
 }
 const fl=value=>formatLength(value,state.unit,state.fractions);
 let overviewKey='waist';
+let popupKey=null,popupFull=false;
 let allMeasurementsOpen=false;
 function render(){
  result=computeDraft(state.draft);
- $('waistGuideContent').innerHTML=waistConstructionGuide(state.unit);
+ $('waistGuideContent').innerHTML=waistConstructionGuide(state.unit,state.fractions);
  const draftErrors=Object.fromEntries([...inputErrors].filter(([k])=>!FABRIC_KEYS.has(k)&&!$(domId(k)).disabled));
  if(Object.keys(draftErrors).length)result={valid:false,errors:{...result.errors,...draftErrors},notices:[]};
  const allErrors={...result.errors,...fabricStatus().errors,...Object.fromEntries(inputErrors)};
@@ -137,7 +138,7 @@ function render(){
   $('results').innerHTML=`<div class="pattern-workbench">
    <div class="workbench-tools"><div class="pattern-legend"><span><i class="legend-stitch"></i>Stitch</span><span><i class="legend-cut"></i>Cut · seam allowance</span></div><button type="button" class="workbench-link" data-open-allowances>Seam allowances ↗</button></div>
    <div class="pattern-stage"><figure id="overviewGraphic">${patternView(result,{key:row.key,seams:state.draft.seams,unit:state.unit,fractions:state.fractions,id:'overviewPattern'})}</figure>
-   <aside class="measurement-focus"><label for="measurementChoice">Explore a measurement</label><select id="measurementChoice"><option value="all" ${overviewKey==='all'?'selected':''}>All measurements</option>${result.rows.map(r=>`<option value="${r.key}" ${r.key===row.key?'selected':''}>${r.label}</option>`).join('')}</select><p class="focus-caption">Stitching line · per panel</p><div class="focus-values" ${overviewKey==='all'?'hidden':''}><div><span>Front</span><strong id="focusFront">${fl(row.f)}</strong></div><div><span>Back</span><strong id="focusBack">${fl(row.b)}</strong></div></div><p id="focusExplanation">${patternNotes[row.key]}</p><p class="focus-estimate" id="focusEstimate">${estimateNote(row.key)}</p><button class="workbench-link waist-guide-link" type="button" data-waist-guide ${['waist','all'].includes(overviewKey)?'':'hidden'}>How to mark the waist points ↗</button></aside></div>
+   <aside class="measurement-focus"><label for="measurementChoice">Explore a measurement</label><select id="measurementChoice"><option value="all" ${overviewKey==='all'?'selected':''}>All measurements</option>${result.rows.map(r=>`<option value="${r.key}" ${r.key===row.key?'selected':''}>${r.label}</option>`).join('')}</select><p class="focus-caption">Stitching line · per panel</p><div class="focus-values" ${overviewKey==='all'?'hidden':''}><div><span>Front</span><strong id="focusFront">${fl(row.f)}</strong></div><div><span>Back</span><strong id="focusBack">${fl(row.b)}</strong></div></div><p id="focusExplanation">${measurementNote(row.key)}</p><button class="workbench-link" type="button" data-measurement-detail ${overviewKey==='all'?'hidden':''}>View measurement detail ↗</button><p class="focus-estimate" id="focusEstimate">${estimateNote(row.key)}</p><button class="workbench-link waist-guide-link" type="button" data-waist-guide ${['waist','all'].includes(overviewKey)?'':'hidden'}>How to mark the waist points ↗</button></aside></div>
    <div class="workbench-bottom"><span>Shape and check curves before cutting.</span><button class="workbench-link" type="button" data-pattern-help>Help with this pattern ↗</button></div>
   </div><details class="all-measurements" ${allMeasurementsOpen?'open':''}><summary>All measurements <span>Full drafting table</span></summary><table class="measure-table interactive-results"><caption>Stitching-line dimensions · allowances shown separately on the diagram</caption><thead><tr><th>Measurement</th><th>Front</th><th>Back</th></tr></thead><tbody>${result.rows.map(r=>`<tr data-pattern-key="${r.key}"><td><button class="result-measure-button" type="button" data-pattern-key="${r.key}">${r.label}<span>↗</span></button></td><td>${fl(r.f)}</td><td>${fl(r.b)}</td></tr>`).join('')}</tbody></table></details>`;
   $('results').querySelector('.all-measurements').addEventListener('toggle',e=>{allMeasurementsOpen=e.target.open;});
@@ -145,6 +146,8 @@ function render(){
  }
  $("draftReference").innerHTML='<p class="table-note">Lengths below the crotch are consecutive vertical sections. The sketch is a reference map, not a scaled cutting pattern. Waist widths are allocations to true along your shaped waist edge.</p>';
  renderFormulas();renderComparison();renderFabric();
+ document.querySelectorAll('[data-popup-fractions]').forEach(b=>b.setAttribute('aria-pressed',String(state.fractions&&state.unit==='in')));
+ if($('measurementDialog').open){if(result.valid)renderMeasurementPopup();else $('measurementDialog').close();}
 
 }
 const patternNotes={
@@ -163,24 +166,38 @@ const patternNotes={
  section3:'The vertical section from point 2 down to the finished hem.',
  hem:'Across the finished hem of each panel. Cutting allowances are separate.'
 };
+function measurementNote(key){return key==='waist'?`Front: ${fl(.5)} inward and ${fl(.5)} down. Back: ${fl(.75)} inward and ${fl(.375)} up. Construction offsets; true the shaped waist to its target allocation.`:patternNotes[key];}
+function renderMeasurementPopup(){
+ const row=result.rows.find(row=>row.key===popupKey);if(!row)return;
+ $('measurementDialogTitle').textContent=row.label;
+ $('measurementDialogValues').innerHTML=`<div><span>Front</span><strong>${fl(row.f)}</strong></div><div><span>Back</span><strong>${fl(row.b)}</strong></div>`;
+ $('measurementDialogGraphic').innerHTML=patternView(result,{key:popupKey,seams:state.draft.seams,unit:state.unit,fractions:state.fractions,detail:!popupFull,id:'popupPattern'});
+ $('measurementDialogExplanation').textContent=measurementNote(popupKey)+' '+estimateNote(popupKey);
+ $('measurementZoom').textContent=popupFull?'Show detail':'Show full pattern';$('measurementZoom').setAttribute('aria-pressed',String(popupFull));
+}
+function openMeasurementPopup(key){if(!result.valid||key==='all')return;popupKey=key;popupFull=false;renderMeasurementPopup();$('measurementDialog').showModal();$('measurementDialog').scrollTop=0;}
+$('measurementZoom').addEventListener('click',()=>{popupFull=!popupFull;renderMeasurementPopup();});
+document.querySelector('[data-popup-fractions]').addEventListener('click',()=>$('fractionToggle').click());
 function estimateNote(key){return key==='seatY'&&state.draft.hipDepth===null?'Seat position uses a starting proportion.':(['knee','section1'].includes(key)&&(state.draft.kneeWidth===null||state.draft.kneeDistance===null))?'Knee uses starting proportions; check on your sample.':'';}
 function updateOverview(){
  if(!result.valid)return;
  const row=overviewKey==='all'?{key:'all',f:null,b:null}:result.rows.find(r=>r.key===overviewKey);if(!row)return;
  $('results').querySelector('.focus-values').hidden=overviewKey==='all';
  $('measurementChoice').value=overviewKey;
+ $('results').querySelector('[data-measurement-detail]').hidden=overviewKey==='all';
  $('results').querySelector('[data-waist-guide]').hidden=!['waist','all'].includes(overviewKey);
  $('overviewGraphic').innerHTML=patternView(result,{key:overviewKey,seams:state.draft.seams,unit:state.unit,fractions:state.fractions,id:'overviewPattern'});
  $('focusFront').textContent=fl(row.f);$('focusBack').textContent=fl(row.b);
- $('focusExplanation').textContent=patternNotes[row.key];$('focusEstimate').textContent=estimateNote(row.key);
+ $('focusExplanation').textContent=measurementNote(row.key);$('focusEstimate').textContent=estimateNote(row.key);
 }
 $('results').addEventListener('change',event=>{if(event.target.id==='measurementChoice'){overviewKey=event.target.value;updateOverview();if(overviewKey==='all'){$('results').querySelector('.all-measurements').open=true;}}});
 $('results').addEventListener('click',event=>{
+ if(event.target.closest('[data-measurement-detail]')){openMeasurementPopup(overviewKey);return;}
  if(event.target.closest('[data-waist-guide]')){$('waistGuideDialog').showModal();return;}
  if(event.target.closest('[data-open-allowances]')){$('allowancesDialog').showModal();return;}
  if(event.target.closest('[data-pattern-help]')){$('patternHelpDialog').showModal();return;}
  const row=event.target.closest('tr[data-pattern-key]');if(!row||!result.valid)return;
- overviewKey=row.dataset.patternKey;updateOverview();$('measurementChoice').focus();$('measurementChoice').scrollIntoView({block:'center',behavior:'smooth'});
+ overviewKey=row.dataset.patternKey;updateOverview();openMeasurementPopup(overviewKey);
 });
 function renderFormulas(){
  const d=state.draft;
