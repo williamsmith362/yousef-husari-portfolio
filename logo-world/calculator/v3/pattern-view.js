@@ -1,7 +1,8 @@
 import {formatLength} from './model.js';
 
 export const panelBounds=v=>{const inside=v.seat-v.offset;return {inside,outside:inside-v.waist,min:Math.min(0,inside-v.waist),max:Math.max(inside,v.seat,v.riseH,v.knee,v.calf,v.hem)};};
-export function panelOutline(r,side,xy){
+export const waistPoint=(side,inside)=>({x:inside-(side==='front'?.5:.75),y:side==='front'?.5:-.375});
+export function panelOutline(r,side,xy,shapeWaist=false){
  const v=r[side],bounds=panelBounds(v);
   const ys=[r.rise,r.rise+r.kneeY,r.rise+r.kneeY+r.section2,r.panelLength];
   const xs=[v.riseH,v.knee,v.calf,v.hem];
@@ -13,17 +14,44 @@ export function panelOutline(r,side,xy){
    const a=m[i]/ds[i],b=m[i+1]/ds[i],norm=a*a+b*b;
    if(norm>9){const t=3/Math.sqrt(norm);m[i]=t*a*ds[i];m[i+1]=t*b*ds[i];}
   }
-  let d=`M ${xy(bounds.outside,0)} L ${xy(bounds.inside,0)} `;
+  const waist=shapeWaist?waistPoint(side,bounds.inside):{x:bounds.inside,y:0};
+  let d=`M ${xy(bounds.outside,0)} L ${xy(waist.x,waist.y)} `;
   if(side==='back'){
    const ty=Math.min(r.seatY,r.rise-r.seatY)*.3,tx=Math.min(v.offset*.5,(v.riseH-v.seat)*.25);
-   d+=`C ${xy(bounds.inside+Math.min(.05,v.offset*.25),r.seatY*.34)} ${xy(v.seat-tx,r.seatY-ty)} ${xy(v.seat,r.seatY)} C ${xy(v.seat+tx,r.seatY+ty)} ${xy(v.riseH-(v.riseH-v.seat)*.4,r.rise)} ${xy(v.riseH,r.rise)} `;
+   d+=`C ${xy(waist.x+Math.min(.05,v.offset*.25),r.seatY*.34)} ${xy(v.seat-tx,r.seatY-ty)} ${xy(v.seat,r.seatY)} C ${xy(v.seat+tx,r.seatY+ty)} ${xy(v.riseH-(v.riseH-v.seat)*.4,r.rise)} ${xy(v.riseH,r.rise)} `;
   }else{
    const k=.5522847498;
-   d+=`C ${xy(bounds.inside,r.seatY*.34)} ${xy(v.seat,r.seatY*.7)} ${xy(v.seat,r.seatY)} C ${xy(v.seat,r.seatY+k*(r.rise-r.seatY))} ${xy(v.riseH-k*(v.riseH-v.seat),r.rise)} ${xy(v.riseH,r.rise)} `;
+   d+=`C ${xy(waist.x,r.seatY*.34)} ${xy(v.seat,r.seatY*.7)} ${xy(v.seat,r.seatY)} C ${xy(v.seat,r.seatY+k*(r.rise-r.seatY))} ${xy(v.riseH-k*(v.riseH-v.seat),r.rise)} ${xy(v.riseH,r.rise)} `;
   }
   for(let i=0;i<3;i++){const h=ys[i+1]-ys[i];d+=`C ${xy(xs[i]+m[i]*h/3,ys[i]+h/3)} ${xy(xs[i+1]-m[i+1]*h/3,ys[i+1]-h/3)} ${xy(xs[i+1],ys[i+1])} `;}
   d+=`L ${xy(0,r.panelLength)} L ${xy(0,r.seatY)} C ${xy(0,r.seatY*.58)} ${xy(bounds.outside*.45,r.seatY*.2)} ${xy(bounds.outside,0)} Z`;
  return d;
+}
+
+// Offset the sampled stitching curve in inches, using the allowance for each edge.
+export function allowanceOutline(r,side,seams,xy,shapeWaist=false){
+ const raw=panelOutline(r,side,(x,y)=>`${x} ${y}`,shapeWaist);
+ const commands=raw.match(/[MLCZ][^MLCZ]*/g), points=[], widths=[];
+ let current,first,cubic=0;
+ const add=(p,w)=>{if(current){widths.push(w);}points.push(p);current=p;};
+ for(const command of commands){
+  const type=command[0],a=(command.slice(1).match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/gi)||[]).map(Number);
+  if(type==='M'){add(a,0);first=a;}
+  if(type==='L'){const w=points.length===1?seams.waist:Math.abs(a[1]-r.panelLength)<1e-6&&Math.abs(current[1]-r.panelLength)<1e-6?seams.hem:(side==='front'?seams.frontOut:seams.backOut);add(a,w);}
+  if(type==='C'){
+   const start=current;const w=cubic<2?(side==='back'?seams.inseam:cubic===0?seams.frontStraight:seams.frontCurve):cubic<5?seams.inseam:(side==='front'?seams.frontOut:seams.backOut);
+   for(let j=1;j<=32;j++){const t=j/32,u=1-t;add([u*u*u*start[0]+3*u*u*t*a[0]+3*u*t*t*a[2]+t*t*t*a[4],u*u*u*start[1]+3*u*u*t*a[1]+3*u*t*t*a[3]+t*t*t*a[5]],w);}cubic++;
+  }
+ }
+ // The final cubic reaches the first point. Keep one vertex at the closure.
+ points.pop(); const count=points.length;
+ const area=points.reduce((v,p,i)=>{const q=points[(i+1)%count];return v+p[0]*q[1]-q[0]*p[1];},0);
+ const edges=points.map((p,i)=>{const q=points[(i+1)%count],dx=q[0]-p[0],dy=q[1]-p[1],len=Math.hypot(dx,dy)||1,sign=area>0?1:-1;return {normal:[sign*dy/len,-sign*dx/len],w:widths[i]};});
+ const offset=points.map((p,i)=>{const prev=edges[(i+count-1)%count],next=edges[i],a=prev.normal,b=next.normal,det=a[0]*b[1]-a[1]*b[0];
+ let dx,dy;if(Math.abs(det)<1e-5){dx=b[0]*next.w;dy=b[1]*next.w;}else{dx=(prev.w*b[1]-a[1]*next.w)/det;dy=(a[0]*next.w-prev.w*b[0])/det;}
+ const limit=Math.max(prev.w,next.w)*4;if(Math.hypot(dx,dy)>limit){dx=(a[0]*prev.w+b[0]*next.w)/2;dy=(a[1]*prev.w+b[1]*next.w)/2;}
+ return [p[0]+dx,p[1]+dy];});
+ return offset.map((p,i)=>`${i?'L':'M'} ${xy(...p)}`).join(' ')+' Z';
 }
 
 // Exact projected dimensions in the same inch coordinates as panelOutline.
@@ -41,7 +69,7 @@ export function patternMeasurement(r,key,side){
   seat:[[0,r.seatY],[v.seat,r.seatY]],
   riseH:[[0,r.rise],[v.riseH,r.rise]],
   offset:[[bounds.inside,r.seatY],[v.seat,r.seatY]],
-  waist:[[bounds.outside,0],[bounds.inside,0]],
+  waist:[[bounds.outside,0],[waistPoint(side,bounds.inside).x,waistPoint(side,bounds.inside).y]],
   section1:[[x,r.rise],[x,knee]],
   knee:[[0,knee],[v.knee,knee]],
   section2:[[x,knee],[x,calf]],
@@ -54,12 +82,12 @@ export function patternMeasurement(r,key,side){
 }
 
 // One scale for both panels and both axes, including focused detail views.
-export function patternView(r,{key=null,unit='in',fractions=false,detail=false,id='currentPattern'}={}){
+export function patternView(r,{key=null,unit='in',fractions=false,detail=false,seams=null,id='currentPattern'}={}){
  if(!r?.valid)return '';
- const width=500,pad=42,gap=44,top=64;
+ const width=key==='all'?640:500,pad=key==='all'?88:52,gap=64,top=64;
  const f=panelBounds(r.front),b=panelBounds(r.back);
  const s=Math.min(14,(width-2*pad-gap)/(f.max-f.min+b.max-b.min),560/r.panelLength);
- const height=top+r.panelLength*s+36,n=v=>Number(v.toFixed(3));
+ const height=top+r.panelLength*s+56,n=v=>Number(v.toFixed(3));
  const selected=r.rows.find(row=>row.key===key);
  const measurements=['front','back'].map(side=>patternMeasurement(r,key,side)).filter(Boolean);
  let viewTop=0,viewBottom=height;
@@ -76,24 +104,29 @@ export function patternView(r,{key=null,unit='in',fractions=false,detail=false,i
   const point=([x,y])=>[origin+direction*x*s,top+y*s];
   const xy=(x,y)=>point([x,y]).map(n).join(' ');
   const knee=r.rise+r.kneeY,calf=knee+r.section2;
-  const d=panelOutline(r,side,xy);
+  const d=panelOutline(r,side,xy,true);
   const levels=[[r.seatY,v.seat],[r.rise,v.riseH],[knee,v.knee],[calf,v.calf]].map(([y,x])=>`M ${xy(0,y)} L ${xy(x,y)}`).join(' ');
-  const reference=`M ${xy(0,0)} L ${xy(0,r.panelLength)} M ${xy(bounds.inside,0)} L ${xy(bounds.inside,r.seatY)}`;
+  const reference=`M ${xy(0,0)} L ${xy(0,r.panelLength)} M ${xy(waistPoint(side,bounds.inside).x,waistPoint(side,bounds.inside).y)} L ${xy(bounds.inside,r.seatY)}`;
   const gx=v.hem/2,gy1=r.rise+r.leg*.1,gy2=r.panelLength-r.leg*.1;
   const arrow=`M ${xy(gx,gy1)} L ${xy(gx,gy2)}`;
   const lx=origin+direction*(bounds.min+bounds.max)*s/2;
   let dimension='';
+  const all=key==='all';
+  for(const dimensionKey of (all?r.rows.map(row=>row.key):[key])){
+  const key=dimensionKey;
   const m=patternMeasurement(r,key,side);
   if(m){
+   if(all&&m.vertical){const lane={panelLength:3,rise:1.7,seatY:.4}[key]??.4;m.start[0]-=lane;m.end[0]-=lane;}
    let [a,c]=[point(m.start),point(m.end)];
    const lift=['waist','offset'].includes(key)?-12:key==='hem'?12:0;
    const extension=m.vertical?`M ${xy(m.start[1]===0?bounds.outside:0,m.start[1])} L ${a.map(n).join(' ')} M ${xy(0,m.end[1])} L ${c.map(n).join(' ')}`:lift?`M ${a.map(n).join(' ')} v ${lift} M ${c.map(n).join(' ')} v ${lift}`:'';
    a=[a[0],a[1]+lift];c=[c[0],c[1]+lift];
    const tx=m.vertical?a[0]-direction*10:(a[0]+c[0])/2;
-   const ty=m.vertical?(a[1]+c[1])/2:a[1]-10;
-   dimension=`<g class="pattern-dimension" data-side="${side}" data-measurement="${key}" data-value="${m.value}"><path class="dimension-extension" d="${extension}"/><path class="dimension-line" d="M ${a.map(n).join(' ')} L ${c.map(n).join(' ')}" marker-start="url(#${id}Arrow)" marker-end="url(#${id}Arrow)"/><circle cx="${n(a[0])}" cy="${n(a[1])}" r="2.5"/><circle cx="${n(c[0])}" cy="${n(c[1])}" r="2.5"/><text class="dimension-value" x="${n(tx)}" y="${n(ty)}" text-anchor="middle" ${m.vertical?`transform="rotate(-90 ${n(tx)} ${n(ty)})"`:''}>${formatLength(m.value,unit,fractions)}</text></g>`;
+   const ty=m.vertical?(a[1]+c[1])/2:(a[1]+c[1])/2-10;
+   dimension+=`<g class="pattern-dimension" data-side="${side}" data-measurement="${key}" data-value="${m.value}"><path class="dimension-extension" d="${extension}"/><path class="dimension-line" d="M ${a.map(n).join(' ')} L ${c.map(n).join(' ')}" marker-start="url(#${id}Arrow)" marker-end="url(#${id}Arrow)"/><circle cx="${n(a[0])}" cy="${n(a[1])}" r="2.5"/><circle cx="${n(c[0])}" cy="${n(c[1])}" r="2.5"/><text class="dimension-value" x="${n(tx)}" y="${n(ty)}" text-anchor="middle" ${m.vertical?`transform="rotate(-90 ${n(tx)} ${n(ty)})"`:''}>${formatLength(m.value,unit,fractions)}</text></g>`;
   }
-  return `<g class="pattern-panel" data-pattern-side="${side}"><g clip-path="url(#${id}Clip)"><path class="level" d="${levels} ${reference}"/><path class="outline" d="${d}"/><path class="grain" d="${arrow}"/></g><text class="panel-title" x="${n(lx)}" y="${n(viewTop+17)}" text-anchor="middle">${side.toUpperCase()}</text>${dimension}</g>`;
+  }
+  return `<g class="pattern-panel" data-pattern-side="${side}"><g clip-path="url(#${id}Clip)"><path class="level" d="${levels} ${reference}"/>${seams?`<path class="allowance-fill" d="${allowanceOutline(r,side,seams,xy,true)}"/><path class="cutting-line" d="${allowanceOutline(r,side,seams,xy,true)}"/>`:""}<path class="outline" d="${d}"/><path class="grain" d="${arrow}"/></g><text class="panel-title" x="${n(lx)}" y="${n(viewTop+17)}" text-anchor="middle">${side.toUpperCase()}</text>${dimension}</g>`;
  }
- return `<svg class="current-pattern${selected?' has-measurement':''}" viewBox="0 ${n(viewTop)} ${width} ${n(viewBottom-viewTop)}" data-scale="${s}" role="img" aria-labelledby="${id}Title ${id}Description"><title id="${id}Title">${selected?selected.label+' on the front and back panels':'Front and back drafting reference for your current measurements'}</title><desc id="${id}Description">Both panels use the same scale. ${selected?'Highlighted arrows show '+selected.label.toLowerCase()+'. ':''}Straight dimensions match your results. Curved seams are shaping references; cutting allowances are separate.</desc><defs><marker id="${id}Arrow" viewBox="0 0 6 6" markerWidth="5" markerHeight="5" refX="3" refY="3" orient="auto-start-reverse"><path d="M6 3 0 0 0 6Z" fill="var(--pattern-accent)"/></marker><clipPath id="${id}Clip"><rect x="0" y="${n(viewTop+28)}" width="${width}" height="${n(viewBottom-viewTop-28)}"/></clipPath></defs>${panel(r.front,f,'front')}${panel(r.back,b,'back')}</svg>`;
+ return `<svg class="current-pattern${selected?' has-measurement':''}" viewBox="0 ${n(viewTop)} ${width} ${n(viewBottom-viewTop)}" data-scale="${s}" role="img" aria-labelledby="${id}Title ${id}Description"><title id="${id}Title">${key==='all'?'All measurements on the front and back panels':selected?selected.label+' on the front and back panels':'Front and back drafting reference for your current measurements'}</title><desc id="${id}Description">Both panels use the same scale. ${selected?'Highlighted arrows show '+selected.label.toLowerCase()+'. ':''}Straight dimensions match your results. Curved seams are shaping references; cutting allowances are separate.</desc><defs><marker id="${id}Arrow" viewBox="0 0 6 6" markerWidth="5" markerHeight="5" refX="3" refY="3" orient="auto-start-reverse"><path d="M6 3 0 0 0 6Z" fill="var(--pattern-accent)"/></marker><clipPath id="${id}Clip"><rect x="0" y="${n(viewTop+28)}" width="${width}" height="${n(viewBottom-viewTop-28)}"/></clipPath></defs>${panel(r.front,f,'front')}${panel(r.back,b,'back')}</svg>`;
 }

@@ -1,3 +1,4 @@
+import {waistConstructionGuide} from './waist-guide.js';
 import {patternView} from './pattern-view.js';
 import {layoutView} from './layout-view.js';
 import {DEFAULT_DRAFT,clone,normalizeDraft,parseLength,formatNumber,formatLength,computeDraft,planFabric,migrateLegacyPreset,compareDrafts} from './model.js';
@@ -10,7 +11,7 @@ const uid=()=>globalThis.crypto?.randomUUID?.()||`draft-${Date.now()}-${Math.ran
 const inputErrors=new Map(),touched=new Set(),fieldKinds=new Map();
 let saveTimer,toastTimer,storageAvailable=true,result;
 let otherTabChanged=false;
-let inspectedMeasurement=null,showFullPattern=false;
+
 const MAX_PROFILES=200;
 function readStored(key,fallback){try{const raw=localStorage.getItem(key);return raw?JSON.parse(raw):fallback;}catch{return fallback;}}
 function getLegacy(){return {presets:readStored('sp_presets',{}),notes:readStored('sp_notes',{}),history:readStored('sp_history',[])};}
@@ -110,8 +111,11 @@ function renderProfiles(){
  }
 }
 const fl=value=>formatLength(value,state.unit,state.fractions);
+let overviewKey='waist';
+let allMeasurementsOpen=false;
 function render(){
  result=computeDraft(state.draft);
+ $('waistGuideContent').innerHTML=waistConstructionGuide(state.unit);
  const draftErrors=Object.fromEntries([...inputErrors].filter(([k])=>!FABRIC_KEYS.has(k)&&!$(domId(k)).disabled));
  if(Object.keys(draftErrors).length)result={valid:false,errors:{...result.errors,...draftErrors},notices:[]};
  const allErrors={...result.errors,...fabricStatus().errors,...Object.fromEntries(inputErrors)};
@@ -129,21 +133,29 @@ function render(){
   const target=key?.startsWith('seams.')?3:['waist','seat','band','depth','length','opening'].includes(key)?0:1;
   $('results').innerHTML=`<div class="empty-draft"><h3>${state.draft.waist===null?'Start with your measurements.':'One thing to check.'}</h3><p>${escapeHTML(result.errors[key]||'Complete your measurements to see the pattern.')}</p><button class="text-button" type="button" data-recover="${target}" data-error-field="${escapeHTML(key||'waist')}">Check ${target===3?'allowances':target===1?'fit':'measurements'} <span aria-hidden="true">→</span></button></div>`;
  }else{
-  const share=Math.round(state.draft.frontShare*100);
-  $('results').innerHTML=`<div class="draft-summary"><div><small>Waist target</small><strong>${fl(result.W)}</strong></div><div><small>Seat target</small><strong>${fl(result.H)}</strong></div><div><small>Leg split · F / B</small><strong>${share} / ${100-share}</strong></div></div><details class="pattern-preview"><summary>View pattern <span>Front &amp; back</span></summary><figure class="draft-visual">${patternView(result)}<figcaption>Stitching-line stations drawn to scale. Shape and true curved seams before cutting.</figcaption></figure></details><p class="pattern-interaction-hint"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="5"/><path d="M10 1v5m0 8v5M1 10h5m8 0h5"/></svg><span>Tap a result to see it on the pattern.</span></p><table class="measure-table interactive-results"><caption>Per panel · add cutting allowances separately</caption><thead><tr><th scope="col">Measurement</th><th scope="col">Front</th><th scope="col">Back</th></tr></thead><tbody>${result.rows.map((r,i)=>`<tr data-pattern-key="${r.key}" class="${i===7?'group-start ':''}${r.key==='hem'?'highlight ':''}${inspectedMeasurement===r.key?'is-selected':''}"><td><button type="button" class="result-measure-button" data-pattern-key="${r.key}" aria-pressed="${inspectedMeasurement===r.key}" aria-label="Show ${r.label.toLowerCase()} on the pattern">${r.label}<span aria-hidden="true">↗</span></button></td><td>${fl(r.f)}</td><td>${fl(r.b)}</td></tr>`).join('')}</tbody></table><p class="table-note">${state.draft.hipDepth===null?'Seat height is estimated. ':''}${state.draft.kneeDistance===null||state.draft.kneeWidth===null?'Knee uses starting proportions. ':''}${state.draft.frontRise!==null?`Curved front-rise target: ${fl(state.draft.frontRise)}; check it on your drawn seam. `:''}${state.draft.seams.frontOut===0||state.draft.seams.backOut===0?'Zero outseam allowance: confirm the selvedge stitching position.':''}</p>`;
+  const row=overviewKey==='all'?{key:'all',f:null,b:null}:result.rows.find(r=>r.key===overviewKey)||result.rows[0];
+  $('results').innerHTML=`<div class="pattern-workbench">
+   <div class="workbench-tools"><div class="pattern-legend"><span><i class="legend-stitch"></i>Stitch</span><span><i class="legend-cut"></i>Cut · seam allowance</span></div><button type="button" class="workbench-link" data-open-allowances>Seam allowances ↗</button></div>
+   <div class="pattern-stage"><figure id="overviewGraphic">${patternView(result,{key:row.key,seams:state.draft.seams,unit:state.unit,fractions:state.fractions,id:'overviewPattern'})}</figure>
+   <aside class="measurement-focus"><label for="measurementChoice">Explore a measurement</label><select id="measurementChoice"><option value="all" ${overviewKey==='all'?'selected':''}>All measurements</option>${result.rows.map(r=>`<option value="${r.key}" ${r.key===row.key?'selected':''}>${r.label}</option>`).join('')}</select><p class="focus-caption">Stitching line · per panel</p><div class="focus-values" ${overviewKey==='all'?'hidden':''}><div><span>Front</span><strong id="focusFront">${fl(row.f)}</strong></div><div><span>Back</span><strong id="focusBack">${fl(row.b)}</strong></div></div><p id="focusExplanation">${patternNotes[row.key]}</p><p class="focus-estimate" id="focusEstimate">${estimateNote(row.key)}</p><button class="workbench-link waist-guide-link" type="button" data-waist-guide ${['waist','all'].includes(overviewKey)?'':'hidden'}>How to mark the waist points ↗</button></aside></div>
+   <div class="workbench-bottom"><span>Shape and check curves before cutting.</span><button class="workbench-link" type="button" data-pattern-help>Help with this pattern ↗</button></div>
+  </div><details class="all-measurements" ${allMeasurementsOpen?'open':''}><summary>All measurements <span>Full drafting table</span></summary><table class="measure-table interactive-results"><caption>Stitching-line dimensions · allowances shown separately on the diagram</caption><thead><tr><th>Measurement</th><th>Front</th><th>Back</th></tr></thead><tbody>${result.rows.map(r=>`<tr data-pattern-key="${r.key}"><td><button class="result-measure-button" type="button" data-pattern-key="${r.key}">${r.label}<span>↗</span></button></td><td>${fl(r.f)}</td><td>${fl(r.b)}</td></tr>`).join('')}</tbody></table></details>`;
+  $('results').querySelector('.all-measurements').addEventListener('toggle',e=>{allMeasurementsOpen=e.target.open;});
+
  }
  $("draftReference").innerHTML='<p class="table-note">Lengths below the crotch are consecutive vertical sections. The sketch is a reference map, not a scaled cutting pattern. Waist widths are allocations to true along your shaped waist edge.</p>';
  renderFormulas();renderComparison();renderFabric();
- if($('patternDialog').open){if(result.valid)renderPatternInspector();else $('patternDialog').close();}
+
 }
 const patternNotes={
+ all:'Every drafting dimension is shown on the diagram. Open the full table below to read the front and back values by name.',
  panelLength:'Straight vertical height from the waistband attachment to the hem. The curved outseam can be longer.',
  rise:'Straight down from the waistband attachment to crotch level. This excludes band height.',
  seatY:'Straight down from the waistband attachment to the full-seat line.',
  seat:'Across each panel at the full-seat line, before the crotch extension.',
  riseH:'Across from the outseam reference to the crotch point, including the extension.',
  offset:'Back only. The horizontal construction offset from the waist-center reference to the full-seat reference.',
- waist:'The waist width for each panel. True your shaped waist edge to this target.',
+ waist:'Front: ½″ inward and ½″ down. Back: ¾″ inward and ⅜″ up. These are construction offsets; true your shaped waist edge to its target allocation.',
  section1:'The vertical section from crotch level down to the knee, also called point 1.',
  knee:'Across each panel at the knee, also called point 1.',
  section2:'The vertical section from point 1 down to point 2.',
@@ -151,40 +163,24 @@ const patternNotes={
  section3:'The vertical section from point 2 down to the finished hem.',
  hem:'Across the finished hem of each panel. Cutting allowances are separate.'
 };
-function renderPatternInspector(){
- const row=result.rows?.find(row=>row.key===inspectedMeasurement);
- if(!result.valid||!row)return;
- $('patternInspectorTitle').textContent=row.label;
- $('patternInspectorValues').innerHTML=`<div><span>Front</span><strong>${fl(row.f)}</strong></div><div><span>Back</span><strong>${fl(row.b)}</strong></div>`;
- $('patternInspectorGraphic').innerHTML=patternView(result,{key:row.key,unit:state.unit,fractions:state.fractions,detail:!showFullPattern,id:'inspectedPattern'});
- $('patternInspectorNote').textContent=patternNotes[row.key]+(row.key==='seatY'&&state.draft.hipDepth===null?' This level uses your selected starting proportion.':'');
- $('patternFullView').textContent=showFullPattern?'Show detail':'Show full pattern';
- $('patternFullView').setAttribute('aria-pressed',String(showFullPattern));
+function estimateNote(key){return key==='seatY'&&state.draft.hipDepth===null?'Seat position uses a starting proportion.':(['knee','section1'].includes(key)&&(state.draft.kneeWidth===null||state.draft.kneeDistance===null))?'Knee uses starting proportions; check on your sample.':'';}
+function updateOverview(){
+ if(!result.valid)return;
+ const row=overviewKey==='all'?{key:'all',f:null,b:null}:result.rows.find(r=>r.key===overviewKey);if(!row)return;
+ $('results').querySelector('.focus-values').hidden=overviewKey==='all';
+ $('measurementChoice').value=overviewKey;
+ $('results').querySelector('[data-waist-guide]').hidden=!['waist','all'].includes(overviewKey);
+ $('overviewGraphic').innerHTML=patternView(result,{key:overviewKey,seams:state.draft.seams,unit:state.unit,fractions:state.fractions,id:'overviewPattern'});
+ $('focusFront').textContent=fl(row.f);$('focusBack').textContent=fl(row.b);
+ $('focusExplanation').textContent=patternNotes[row.key];$('focusEstimate').textContent=estimateNote(row.key);
 }
+$('results').addEventListener('change',event=>{if(event.target.id==='measurementChoice'){overviewKey=event.target.value;updateOverview();if(overviewKey==='all'){$('results').querySelector('.all-measurements').open=true;}}});
 $('results').addEventListener('click',event=>{
- const row=event.target.closest('tr[data-pattern-key]');
- if(!row||!result.valid)return;
- inspectedMeasurement=row.dataset.patternKey;showFullPattern=false;
- row.querySelector('button').focus();
- for(const other of $('results').querySelectorAll('tr[data-pattern-key]')){
-  const selected=other===row;other.classList.toggle('is-selected',selected);other.querySelector('button').setAttribute('aria-pressed',String(selected));
- }
- renderPatternInspector();$('patternDialog').showModal();
-});
-$('patternFullView').addEventListener('click',()=>{showFullPattern=!showFullPattern;renderPatternInspector();});
-$('closePatternInspector').addEventListener('click',()=>$('patternDialog').close());
-$('patternInspectorDone').addEventListener('click',()=>$('patternDialog').close());
-$('patternDialog').addEventListener('close',()=>{
- inspectedMeasurement=null;showFullPattern=false;
- for(const row of $('results').querySelectorAll('tr[data-pattern-key]')){
-  row.classList.remove('is-selected');row.querySelector('button').setAttribute('aria-pressed','false');
- }
- $('patternInspectorGraphic').replaceChildren();
-});
-$('patternDialog').addEventListener('click',event=>{
- if(event.target!==$('patternDialog'))return;
- const box=event.target.getBoundingClientRect();
- if(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom)event.target.close();
+ if(event.target.closest('[data-waist-guide]')){$('waistGuideDialog').showModal();return;}
+ if(event.target.closest('[data-open-allowances]')){$('allowancesDialog').showModal();return;}
+ if(event.target.closest('[data-pattern-help]')){$('patternHelpDialog').showModal();return;}
+ const row=event.target.closest('tr[data-pattern-key]');if(!row||!result.valid)return;
+ overviewKey=row.dataset.patternKey;updateOverview();$('measurementChoice').focus();$('measurementChoice').scrollIntoView({block:'center',behavior:'smooth'});
 });
 function renderFormulas(){
  const d=state.draft;
@@ -264,9 +260,9 @@ document.addEventListener('change',e=>{
 });
 document.querySelectorAll('[data-unit]').forEach(b=>b.addEventListener('click',()=>{
  if(state.unit===b.dataset.unit)return;if([...inputErrors].some(([k])=>!$(domId(k)).disabled)){toast('Correct the highlighted entries before switching units.');return;}
- state.unit=b.dataset.unit;syncInputs();render();persist();
+ state.unit=b.dataset.unit;if(state.unit==='cm')state.fractions=false;syncInputs();render();persist();
 }));
-$('fractionToggle').addEventListener('change',e=>{state.fractions=e.target.checked;render();persist();});
+$('fractionToggle').addEventListener('change',e=>{if([...inputErrors].some(([k])=>!$(domId(k)).disabled)){e.target.checked=state.fractions;toast('Correct the highlighted entries before switching display.');return;}state.fractions=e.target.checked;if(state.fractions)state.unit='in';syncInputs();render();persist();});
 document.addEventListener('appearance:change',event=>{state.theme=event.detail.theme;if(!event.detail.external)persist();});
 function replaceDraft(d,activeId=null,pendingInputs={}){state.draft=normalizeDraft(d);state.activeId=activeId;state.pendingInputs=pendingInputs;inputErrors.clear();touched.clear();syncInputs();renderProfiles();render();persist();document.dispatchEvent(new CustomEvent('draft:loaded'));}
 $('loadExample').addEventListener('click',()=>{

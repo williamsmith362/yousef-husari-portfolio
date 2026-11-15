@@ -10,7 +10,7 @@ cards.forEach(c=>c.classList.add('step-panel'));
 $('measureTitle').textContent='Your measurements';$('loadExample').textContent='Use example';$('clothTitle').textContent='Fabric estimate';
 const stepNames=['Measure','Fit','Pattern','Fabric'];
 const titles=['Measure your jeans.','Make the fit yours.','Your front & back.','How much fabric?'];
-const hints=['Start with jeans that fit. Add the six measurements below.','Optional. Keep the defaults, or adjust the fit you want.','Draw each panel from the table. Add cutting allowances before cutting.','Choose selvedge or regular denim, then enter its full, unfolded width.'];
+const hints=['Start with jeans that fit. Add the six measurements below.','Optional. Keep the defaults, or adjust the fit you want.','Choose a measurement to see where it belongs.','Choose selvedge or regular denim, then enter its full, unfolded width.'];
 const nextLabels=['Next: Fit','Next: Pattern','Next: Fabric','Calculate'];
 const nav=document.querySelector('.steps');
 nav.innerHTML=stepNames.map((name,i)=>`<button type="button" data-step="${i}"><span class="step-dot">${i+1}</span>${name}</button>`).join('');
@@ -19,7 +19,7 @@ document.querySelector('.drafts-toggle').addEventListener('click',e=>{drafts.hid
 let step=0;
 function show(n,scroll=true){step=Math.max(0,Math.min(3,n));cards.forEach((c,i)=>{c.hidden=i!==step;});[...nav.children].forEach((b,i)=>{if(i===step)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current');b.classList.toggle('past',i<step);b.querySelector('.step-dot').textContent=String(i+1).padStart(2,'0');});$('stepHeading').textContent=titles[step];$('stepHint').textContent=hints[step];$('stepCount').textContent=`${step+1} of 4`;$('stepBack').disabled=step===0;$('stepNext').innerHTML=`${nextLabels[step]} <span aria-hidden="true">${step===3?'↵':'→'}</span>`;if(scroll){$('stepHeading').focus({preventScroll:true});window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});}}
 document.addEventListener('draft:loaded',()=>show(0));
-document.addEventListener('click',e=>{const b=e.target.closest('[data-recover]');if(!b)return;show(+b.dataset.recover);const field=[...document.querySelectorAll('input[data-field]')].find(input=>input.dataset.field===b.dataset.errorField);if(field){field.closest('details')?.setAttribute('open','');field.focus();}});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-recover]');if(!b)return;show(+b.dataset.recover);const field=[...document.querySelectorAll('input[data-field]')].find(input=>input.dataset.field===b.dataset.errorField);if(field){const dialog=field.closest('dialog');if(dialog&&!dialog.open)dialog.showModal();field.closest('details')?.setAttribute('open','');field.focus();}});
 nav.addEventListener('click',e=>{const b=e.target.closest('[data-step]');if(b)show(+b.dataset.step);});
 $('stepBack').addEventListener('click',()=>show(step-1));
 $('stepNext').addEventListener('click',()=>{
@@ -33,7 +33,7 @@ $('stepNext').addEventListener('click',()=>{
  if(step===0){const ids=['waist','seat','band','depth','length','opening'];for(const id of ids){const input=$(id);if(!input.value.trim()||input.getAttribute('aria-invalid')==='true'){input.setAttribute('aria-invalid','true');$(id+'Error').textContent=input.value.trim()?$(id+'Error').textContent:'Add this measurement to continue.';input.focus();return;}}}
  const invalid=cards[step].querySelector('input[aria-invalid="true"]:not(:disabled)');if(invalid){invalid.closest('details')?.setAttribute('open','');invalid.focus();return;}show(step+1);
 });
-$('fabricResult').addEventListener('click',e=>{const b=e.target.closest('[data-goto]');if(!b)return;show(+b.dataset.goto);const container=b.dataset.open?$(b.dataset.open):cards[+b.dataset.goto];const invalid=container.querySelector('input[aria-invalid="true"]');if(invalid){invalid.closest('details')?.setAttribute('open','');invalid.focus();}});
+$('fabricResult').addEventListener('click',e=>{const b=e.target.closest('[data-goto]');if(!b)return;show(+b.dataset.goto);const container=b.dataset.open?$(b.dataset.open):cards[+b.dataset.goto];const invalid=container.querySelector('input[aria-invalid="true"]');if(invalid){const dialog=invalid.closest('dialog');if(dialog&&!dialog.open)dialog.showModal();invalid.closest('details')?.setAttribute('open','');invalid.focus();}});
 $('cloth').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input')){e.preventDefault();$('stepNext').click();}});
 const info=$('infoDialog');
 function openInfo(title,html,measurement=false){info.classList.toggle('measurement-help-dialog',measurement);$('infoTitle').textContent=title;$('infoBody').innerHTML=html;info.showModal();}
@@ -88,3 +88,20 @@ if(tutorialInput){
  const index=cards.findIndex(card=>card.contains(tutorialInput));
  if(index>=0){show(index,false);tutorialInput.closest('details')?.setAttribute('open','');tutorialInput.closest('.field').classList.add('guided-field');requestAnimationFrame(()=>{tutorialInput.focus({preventScroll:true});tutorialInput.scrollIntoView({block:'center',behavior:'instant'});});tutorialInput.addEventListener('input',()=>tutorialInput.closest('.field').classList.remove('guided-field'),{once:true});}
 }
+
+// Keep the primary pattern screen focused; open supporting tools on demand.
+const seamDisclosure=$('seamFields').closest('details');
+$('allowancesContent').append(...seamDisclosure.querySelector('.details-body').childNodes);
+seamDisclosure.remove();
+for(const detail of [...$('draft').querySelectorAll(':scope > details')])$('patternHelpContent').append(detail);
+$('draftTitle').textContent='Pattern overview';
+for(const button of document.querySelectorAll('[data-close-workbench]'))button.addEventListener('click',()=>{
+ const dialog=button.closest('dialog');const invalid=dialog.querySelector('input[aria-invalid="true"]');
+ if(invalid){invalid.focus();return;}dialog.close();
+});
+for(const dialog of [$('allowancesDialog'),$('patternHelpDialog'),$('waistGuideDialog')])dialog.addEventListener('click',e=>{if(e.target===dialog){const box=dialog.getBoundingClientRect();if(e.clientX<box.left||e.clientX>box.right||e.clientY<box.top||e.clientY>box.bottom)dialog.close();}});
+$('patternHelpContent').append(document.querySelector('#draft>.result-tools'),$('copyDraft'));
+
+const fabricAllowances=document.createElement('button');fabricAllowances.type='button';fabricAllowances.className='text-button';fabricAllowances.textContent='Seam allowances ↗';fabricAllowances.onclick=()=>$('allowancesDialog').showModal();$('shrinkFields').closest('details').after(fabricAllowances);
+
+const fractionControl=$('fractionToggle').closest('label');fractionControl.className='top-fractions';fractionControl.querySelector('small')?.remove();document.querySelector('.segmented').append(fractionControl);$('fractionToggle').setAttribute('aria-label','Fractions in inches');document.querySelector('.segmented').setAttribute('aria-label','Measurement display');
