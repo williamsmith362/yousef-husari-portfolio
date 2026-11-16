@@ -83,16 +83,7 @@
 .calculator-link-label { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 18px; font-size: 13px; }
 .choice-calculator > .calculator-link-label { font-size: 13px; }
 .calculator-link-label > span:last-child { font-size: 19px; }
-/* Both modes stay visible; the filled circle marks the active appearance. */
-.choice-heading-row .portfolio-theme-toggle { position: relative; width: 64px; height: 44px; border-radius: 22px; background: transparent; }
-.choice-heading-row .portfolio-theme-toggle::before { content: ''; position: absolute; inset: 5px 0; border: 1px solid #c8c8c1; border-radius: 999px; }
-.choice-heading-row .portfolio-theme-toggle::after { content: ''; position: absolute; width: 26px; height: 26px; left: 4px; top: 9px; background: var(--ink); border-radius: 50%; transition: transform .2s ease, background-color .2s ease; }
-.choice-heading-row .portfolio-theme-toggle .theme-sun, .choice-heading-row .portfolio-theme-toggle .theme-moon { position: absolute; top: 15px; display: block; width: 14px; height: 14px; z-index: 1; stroke-width: 1.6; }
-.choice-heading-row .portfolio-theme-toggle .theme-sun { left: 10px; color: var(--paper); }
-.choice-heading-row .portfolio-theme-toggle .theme-moon { left: 40px; color: var(--muted); }
-[data-theme="midnight"] .choice-heading-row .portfolio-theme-toggle::after { transform: translateX(30px); }
-[data-theme="midnight"] .choice-heading-row .portfolio-theme-toggle::before { border-color: #55554f; }
-[data-theme="midnight"] .choice-heading-row .portfolio-theme-toggle .theme-sun { color: var(--muted); }
-[data-theme="midnight"] .choice-heading-row .portfolio-theme-toggle .theme-moon { color: var(--paper); }
+/* One appearance button, with the icon supplied by the shared theme styles. */
+.choice-heading-row .portfolio-theme-toggle { border: 0; background: transparent; color: var(--ink); box-shadow: none; }
+.view-choice .choice-heading-row h1 { color: var(--ink); }
 @media(max-width:620px) { .view-choice .choice-heading-row h1 { font-size: clamp(21px,6vw,28px); } }
-@media(prefers-reduced-motion:reduce) { .choice-heading-row .portfolio-theme-toggle::after { transition: none; } }
