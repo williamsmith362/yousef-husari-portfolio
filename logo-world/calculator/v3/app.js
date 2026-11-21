@@ -112,6 +112,11 @@ function renderProfiles(){
 }
 const fl=value=>formatLength(value,state.unit,state.fractions);
 let overviewKey='waist';
+function overviewRow(){
+ if(overviewKey==='all'||overviewKey==='none')return {key:overviewKey,f:null,b:null};
+ return result.rows.find(row=>row.key===overviewKey)||result.rows[0];
+}
+const showsSingleMeasurement=key=>key!=='all'&&key!=='none';
 let popupKey=null,popupFull=false;
 let allMeasurementsOpen=false;
 function render(){
@@ -134,11 +139,12 @@ function render(){
   const target=key?.startsWith('seams.')?3:['waist','seat','band','depth','length','opening'].includes(key)?0:1;
   $('results').innerHTML=`<div class="empty-draft"><h3>${state.draft.waist===null?'Start with your measurements.':'One thing to check.'}</h3><p>${escapeHTML(result.errors[key]||'Complete your measurements to see the pattern.')}</p><button class="text-button" type="button" data-recover="${target}" data-error-field="${escapeHTML(key||'waist')}">Check ${target===3?'allowances':target===1?'fit':'measurements'} <span aria-hidden="true">→</span></button></div>`;
  }else{
-  const row=overviewKey==='all'?{key:'all',f:null,b:null}:result.rows.find(r=>r.key===overviewKey)||result.rows[0];
+  const row=overviewRow();
+  const measured=showsSingleMeasurement(row.key);
   $('results').innerHTML=`<div class="pattern-workbench">
    <div class="workbench-tools"><div class="pattern-legend"><span><i class="legend-stitch"></i>Stitch</span><span><i class="legend-cut"></i>Cut · seam allowance</span></div><button type="button" class="workbench-link" data-open-allowances>Seam allowances ↗</button></div>
    <div class="pattern-stage"><figure id="overviewGraphic">${patternView(result,{key:row.key,seams:state.draft.seams,unit:state.unit,fractions:state.fractions,id:'overviewPattern'})}</figure>
-   <aside class="measurement-focus"><label for="measurementChoice">Explore a measurement</label><select id="measurementChoice"><option value="all" ${overviewKey==='all'?'selected':''}>All measurements</option>${result.rows.map(r=>`<option value="${r.key}" ${r.key===row.key?'selected':''}>${r.label}</option>`).join('')}</select><p class="focus-caption">Stitching line · per panel</p><div class="focus-values" ${overviewKey==='all'?'hidden':''}><div><span>Front</span><strong id="focusFront">${fl(row.f)}</strong></div><div><span>Back</span><strong id="focusBack">${fl(row.b)}</strong></div></div><p id="focusExplanation">${measurementNote(row.key)}</p><button class="workbench-link" type="button" data-measurement-detail ${overviewKey==='all'?'hidden':''}>View measurement detail ↗</button><p class="focus-estimate" id="focusEstimate">${estimateNote(row.key)}</p><button class="workbench-link waist-guide-link" type="button" data-waist-guide ${['waist','all'].includes(overviewKey)?'':'hidden'}>How to mark the waist points ↗</button></aside></div>
+   <aside class="measurement-focus"><label for="measurementChoice">Explore a measurement</label><select id="measurementChoice"><option value="none" ${row.key==='none'?'selected':''}>Pattern only</option><option value="all" ${overviewKey==='all'?'selected':''}>All measurements</option>${result.rows.map(r=>`<option value="${r.key}" ${r.key===row.key?'selected':''}>${r.label}</option>`).join('')}</select><p class="focus-caption" ${row.key==='none'?'hidden':''}>Stitching line · per panel</p><div class="focus-values" ${measured?'':'hidden'}><div><span>Front</span><strong id="focusFront">${fl(row.f)}</strong></div><div><span>Back</span><strong id="focusBack">${fl(row.b)}</strong></div></div><p id="focusExplanation">${measurementNote(row.key)}</p><button class="workbench-link" type="button" data-measurement-detail ${measured?'':'hidden'}>View measurement detail ↗</button><p class="focus-estimate" id="focusEstimate">${estimateNote(row.key)}</p><button class="workbench-link waist-guide-link" type="button" data-waist-guide ${['waist','all'].includes(overviewKey)?'':'hidden'}>How to mark the waist points ↗</button></aside></div>
    <div class="workbench-bottom"><span>Shape and check curves before cutting.</span><button class="workbench-link" type="button" data-pattern-help>Help with this pattern ↗</button></div>
   </div><details class="all-measurements" ${allMeasurementsOpen?'open':''}><summary>All measurements <span>Full drafting table</span></summary><table class="measure-table interactive-results"><caption>Stitching-line dimensions · allowances shown separately on the diagram</caption><thead><tr><th>Measurement</th><th>Front</th><th>Back</th></tr></thead><tbody>${result.rows.map(r=>`<tr data-pattern-key="${r.key}"><td><button class="result-measure-button" type="button" data-pattern-key="${r.key}">${r.label}<span>↗</span></button></td><td>${fl(r.f)}</td><td>${fl(r.b)}</td></tr>`).join('')}</tbody></table></details>`;
   $('results').querySelector('.all-measurements').addEventListener('toggle',e=>{allMeasurementsOpen=e.target.open;});
@@ -151,6 +157,7 @@ function render(){
 
 }
 const patternNotes={
+ none:'Front and back stitching lines and cutting allowances.',
  all:'Every drafting dimension is shown on the diagram. Open the full table below to read the front and back values by name.',
  panelLength:'Straight vertical height from the waistband attachment to the hem. The curved outseam can be longer.',
  rise:'Straight down from the waistband attachment to crotch level. This excludes band height.',
@@ -181,10 +188,12 @@ document.querySelector('[data-popup-fractions]').addEventListener('click',()=>$(
 function estimateNote(key){return key==='seatY'&&state.draft.hipDepth===null?'Seat position uses a starting proportion.':(['knee','section1'].includes(key)&&(state.draft.kneeWidth===null||state.draft.kneeDistance===null))?'Knee uses starting proportions; check on your sample.':'';}
 function updateOverview(){
  if(!result.valid)return;
- const row=overviewKey==='all'?{key:'all',f:null,b:null}:result.rows.find(r=>r.key===overviewKey);if(!row)return;
- $('results').querySelector('.focus-values').hidden=overviewKey==='all';
+ const row=overviewRow();
+ const measured=showsSingleMeasurement(row.key);
+ $('results').querySelector('.focus-values').hidden=!measured;
+ $('results').querySelector('.focus-caption').hidden=row.key==='none';
  $('measurementChoice').value=overviewKey;
- $('results').querySelector('[data-measurement-detail]').hidden=overviewKey==='all';
+ $('results').querySelector('[data-measurement-detail]').hidden=!measured;
  $('results').querySelector('[data-waist-guide]').hidden=!['waist','all'].includes(overviewKey);
  $('overviewGraphic').innerHTML=patternView(result,{key:overviewKey,seams:state.draft.seams,unit:state.unit,fractions:state.fractions,id:'overviewPattern'});
  $('focusFront').textContent=fl(row.f);$('focusBack').textContent=fl(row.b);

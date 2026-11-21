@@ -17,7 +17,35 @@ nav.innerHTML=stepNames.map((name,i)=>`<button type="button" data-step="${i}"><s
 const drafts=document.querySelector('.draft-bar');drafts.hidden=true;
 document.querySelector('.drafts-toggle').addEventListener('click',e=>{drafts.hidden=!drafts.hidden;e.currentTarget.setAttribute('aria-expanded',String(!drafts.hidden));$('moreMenu').open=false;});
 let step=0;
-function show(n,scroll=true){step=Math.max(0,Math.min(3,n));cards.forEach((c,i)=>{c.hidden=i!==step;});[...nav.children].forEach((b,i)=>{if(i===step)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current');b.classList.toggle('past',i<step);b.querySelector('.step-dot').textContent=String(i+1).padStart(2,'0');});$('stepHeading').textContent=titles[step];$('stepHint').textContent=hints[step];$('stepCount').textContent=`${step+1} of 4`;$('stepBack').disabled=step===0;$('stepNext').innerHTML=`${nextLabels[step]} <span aria-hidden="true">${step===3?'↵':'→'}</span>`;if(scroll){$('stepHeading').focus({preventScroll:true});window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});}}
+const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+const motionTiming={duration:250,easing:'cubic-bezier(.2, .7, .3, 1)'};
+let headingMotion;
+function show(n,scroll=true){
+ const nextStep=Math.max(0,Math.min(3,n));
+ const changed=nextStep!==step;
+ step=nextStep;
+ cards.forEach((card,i)=>{card.hidden=i!==step;});
+ [...nav.children].forEach((button,i)=>{
+  if(i===step)button.setAttribute('aria-current','step');
+  else button.removeAttribute('aria-current');
+  button.classList.toggle('past',i<step);
+  button.querySelector('.step-dot').textContent=String(i+1).padStart(2,'0');
+ });
+ const heading=$('stepHeading');
+ heading.textContent=titles[step];
+ $('stepHint').textContent=hints[step];
+ $('stepCount').textContent=`${step+1} of 4`;
+ $('stepBack').disabled=step===0;
+ $('stepNext').innerHTML=`${nextLabels[step]} <span aria-hidden="true">${step===3?'↵':'→'}</span>`;
+ if(changed&&!reducedMotion.matches){
+  headingMotion?.cancel();
+  headingMotion=heading.parentElement.animate([{opacity:.72,translate:'0 3px'},{opacity:1,translate:'0 0'}],motionTiming);
+ }
+ if(scroll){
+  heading.focus({preventScroll:true});
+  window.scrollTo({top:0,behavior:reducedMotion.matches?'instant':'smooth'});
+ }
+}
 document.addEventListener('draft:loaded',()=>show(0));
 document.addEventListener('click',e=>{const b=e.target.closest('[data-recover]');if(!b)return;show(+b.dataset.recover);const field=[...document.querySelectorAll('input[data-field]')].find(input=>input.dataset.field===b.dataset.errorField);if(field){const dialog=field.closest('dialog');if(dialog&&!dialog.open)dialog.showModal();field.closest('details')?.setAttribute('open','');field.focus();}});
 nav.addEventListener('click',e=>{const b=e.target.closest('[data-step]');if(b)show(+b.dataset.step);});
@@ -27,7 +55,9 @@ $('stepNext').addEventListener('click',()=>{
   document.dispatchEvent(new CustomEvent('fabric:calculate'));
   const invalid=$('cloth').querySelector('input[aria-invalid="true"]:not(:disabled)');
   if(invalid){invalid.closest('details')?.setAttribute('open','');invalid.focus();return;}
-  $('fabricResult').scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  const estimate=$('fabricResult');
+  if(!reducedMotion.matches)estimate.animate([{opacity:.72},{opacity:1}],motionTiming);
+  estimate.scrollIntoView({block:'start',behavior:reducedMotion.matches?'instant':'smooth'});
   return;
  }
  if(step===0){const ids=['waist','seat','band','depth','length','opening'];for(const id of ids){const input=$(id);if(!input.value.trim()||input.getAttribute('aria-invalid')==='true'){input.setAttribute('aria-invalid','true');$(id+'Error').textContent=input.value.trim()?$(id+'Error').textContent:'Add this measurement to continue.';input.focus();return;}}}

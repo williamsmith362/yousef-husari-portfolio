@@ -124,7 +124,13 @@
   :root {
     --paper: #fff;
     --surface: #fff;
-    --soft: #f2f2f2;
+    --soft: #ededed;
+    --work-area: #f7f7f7;
+    --hover: #dedede;
+    --front-panel: #fafafa;
+    --back-panel: #d8d8d8;
+    --motion-fast: 150ms cubic-bezier(.2, .7, .3, 1);
+    --motion-panel: 250ms cubic-bezier(.2, .7, .3, 1);
     --ink: #161616;
     --muted: #505050;
     --faint: #626262;
@@ -135,8 +141,12 @@
 
   :root[data-theme=midnight] {
     --paper: #171717;
-    --surface: #171717;
-    --soft: #242424;
+    --surface: #222;
+    --soft: #303030;
+    --work-area: #1b1b1b;
+    --hover: #3d3d3d;
+    --front-panel: #252525;
+    --back-panel: #414141;
     --ink: #f5f5f5;
     --muted: #c1c1c1;
     --faint: #aaa;
@@ -353,4 +363,262 @@
       font-size: .6875rem;
     }
   }
+}
+
+/* Work surfaces, pattern labels and display controls */
+@media screen {
+  body {
+    font-family: var(--font);
+    background: var(--work-area);
+  }
+
+  .appbar,
+  .step-actions,
+  .measurement-focus {
+    background: var(--surface);
+  }
+
+  .steps button,
+  .workbench-tools,
+  .workbench-bottom,
+  .focus-values > div,
+  .calc-facts > div {
+    background: var(--soft);
+  }
+
+  .focus-values {
+    padding-bottom: 0;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+
+  .focus-values > div {
+    min-width: 0;
+    padding: 10px clamp(6px, 1.25vw, 12px);
+  }
+
+  .focus-values strong {
+    white-space: normal;
+  }
+
+  .measurement-dialog .focus-values {
+    padding-bottom: 0;
+  }
+
+  .calc-facts > div {
+    padding: 12px;
+  }
+
+  #overviewGraphic,
+  #measurementDialogGraphic {
+    background: var(--work-area);
+  }
+
+  .current-pattern .panel-title,
+  .current-pattern .dimension-value,
+  .cutting-layout text {
+    font-family: var(--font);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .current-pattern .panel-title {
+    fill: var(--ink);
+    letter-spacing: .05em;
+  }
+
+  #overviewGraphic .current-pattern .outline,
+  #measurementDialogGraphic .current-pattern .outline,
+  .cutting-layout .layout-outline {
+    fill: var(--front-panel);
+    fill-opacity: .88;
+  }
+
+  #overviewGraphic [data-pattern-side=back] .outline,
+  #measurementDialogGraphic [data-pattern-side=back] .outline,
+  .cutting-layout [data-panel=back] .layout-outline {
+    fill: var(--back-panel);
+  }
+
+  .cutting-layout .layout-outline {
+    fill-opacity: 1;
+  }
+
+  .top-fractions,
+  .popup-display [data-popup-fractions] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 40px;
+    padding-inline: 9px;
+    background: var(--soft);
+    color: var(--ink);
+    font-size: .8125rem;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  .top-fractions {
+    border: 0;
+    border-inline-start: 1px solid var(--control-line);
+  }
+
+  .top-fractions:has(input:checked),
+  .popup-display [data-popup-fractions][aria-pressed=true] {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .fraction-state {
+    display: inline-grid;
+    place-items: center;
+    min-width: 3ch;
+    padding: 1px 4px;
+    border: 1px solid currentColor;
+    font-size: .625rem;
+    font-weight: 750;
+    line-height: 1.4;
+    grid-template-areas: "state";
+  }
+
+  .fraction-state > span {
+    grid-area: state;
+    visibility: hidden;
+  }
+
+  .top-fractions:not(:has(input:checked)) .fraction-off,
+  .top-fractions:has(input:checked) .fraction-on,
+  [data-popup-fractions][aria-pressed=false] .fraction-off,
+  [data-popup-fractions][aria-pressed=true] .fraction-on {
+    visibility: visible;
+  }
+
+  @media (max-width: 600px) {
+    .focus-values {
+      padding-bottom: 0;
+    }
+
+    .popup-display {
+      flex-wrap: wrap;
+    }
+  }
+
+  @media (hover: hover) {
+    :is(button, summary, select, .top-fractions):not(:disabled):hover {
+      cursor: pointer;
+    }
+
+    :is(button, summary, select, .top-fractions):not(:disabled):hover {
+      background-color: var(--hover);
+    }
+
+    :is(.segmented, .popup-display, .fabric-type-controls, .preset-buttons) button[aria-pressed=true]:hover,
+    .steps button[aria-current=step]:hover,
+    .top-fractions:has(input:checked):hover,
+    .button:not(.secondary, :disabled):hover {
+      background-color: color-mix(in srgb, var(--ink) 85%, var(--surface));
+    }
+
+    a[href]:hover {
+      opacity: .78;
+      text-decoration-color: currentColor;
+      text-underline-offset: 4px;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :is(button, a[href], summary, label:has(> input[type=checkbox]), select, textarea, input:not([type=hidden])) {
+      transition:
+        background-color var(--motion-fast),
+        border-color var(--motion-fast),
+        color var(--motion-fast),
+        opacity var(--motion-fast),
+        scale var(--motion-fast),
+        text-underline-offset var(--motion-fast);
+    }
+
+    :is(button, summary, select, .top-fractions):not(:disabled):active,
+    :is(.brand, .skip-link):active {
+      scale: .98;
+    }
+
+    .step-panel:not([hidden]),
+    dialog[open] {
+      animation: step-in var(--motion-panel);
+    }
+
+    .menu-panel,
+    .draft-bar:not([hidden]),
+    #overviewGraphic > svg,
+    #measurementDialogGraphic > svg,
+    .focus-values:not([hidden]) > div {
+      animation: calculator-refresh var(--motion-panel);
+    }
+
+    .toast:not([hidden]) {
+      animation: calculator-refresh var(--motion-fast);
+    }
+
+    @supports (transition-behavior: allow-discrete) {
+      dialog {
+        opacity: 0;
+        translate: 0 5px;
+        transition:
+          opacity var(--motion-panel),
+          translate var(--motion-panel),
+          display var(--motion-panel) allow-discrete,
+          overlay var(--motion-panel) allow-discrete;
+      }
+
+      dialog[open] {
+        opacity: 1;
+        translate: none;
+        animation: none;
+      }
+
+      dialog::backdrop {
+        opacity: 0;
+        transition: opacity var(--motion-panel), display var(--motion-panel) allow-discrete, overlay var(--motion-panel) allow-discrete;
+      }
+
+      dialog[open]::backdrop {
+        opacity: 1;
+      }
+
+      @starting-style {
+        dialog[open] { opacity: 0; translate: 0 5px; }
+        dialog[open]::backdrop { opacity: 0; }
+      }
+    }
+
+    @supports selector(details::details-content) and (block-size: calc-size(auto, size)) {
+      details:not(.more-menu)::details-content {
+        block-size: 0;
+        opacity: 0;
+        overflow: clip;
+        transition:
+          block-size var(--motion-panel),
+          opacity var(--motion-panel),
+          content-visibility var(--motion-panel) allow-discrete;
+      }
+
+      details[open]:not(.more-menu)::details-content {
+        block-size: calc-size(auto, size);
+        opacity: 1;
+      }
+    }
+
+    @supports not ((selector(details::details-content)) and (block-size: calc-size(auto, size))) {
+      details[open]:not(.more-menu) > :not(summary) {
+        animation: calculator-refresh var(--motion-panel);
+      }
+    }
+  }
+}
+
+@keyframes calculator-refresh {
+  from { opacity: .55; }
+  to { opacity: 1; }
 }
