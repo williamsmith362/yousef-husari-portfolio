@@ -63,7 +63,7 @@ export function formatLength(inches,unit='in',fractions=false) {
 
 export function computeDraft(input) {
   const d=normalizeDraft(input), errors={}, notices=[];
-  const required={waist:'Waist',seat:'Seat',depth:'Vertical crotch depth',length:'Total length',opening:'Flat hem opening'};
+  const required={waist:'Waist',seat:'Seat',depth:'Rise',length:'Total length',opening:'Flat hem opening'};
   for(const [key,label] of Object.entries(required)) if(d[key]===null || d[key]<=0) errors[key]=`Enter a positive ${label.toLowerCase()}.`;
   for(const key of LENGTH_KEYS) if(!['fabricWidth','extraLength',...(d.waistSource==='body'?[]:['waistEase']),...(d.seatSource==='body'?[]:['seatEase'])].includes(key) && d[key]!==null && d[key]<0) errors[key]='Use zero or a positive measurement.';
   for(const [k,value] of Object.entries(d.seams)) if(value<0) errors[`seams.${k}`]='Allowances cannot be negative.';
@@ -84,7 +84,7 @@ export function computeDraft(input) {
   const Q=H/8-d.forkDeduction;
   const frontWaist=W/4-d.waistBalance/2, backWaist=W/4+d.waistBalance/2;
   if(rise<=0) errors.depth='Crotch level must be below the bottom of the waistband.';
-  if(leg<=0) errors.length='Hem must be below crotch level. Check total length and vertical depth.';
+  if(leg<=0) errors.length='Hem must be below crotch level. Check Total length and Rise.';
   if(seatY<=0 || seatY>=rise) errors.hipDepth='Seat level must fall between the waistband attachment and crotch line.';
   if(kneeY<=0 || kneeY>=leg) errors.kneeDistance='Knee point must fall between crotch level and the hem.';
   if(frontWaist<=0 || backWaist<=0) errors.waistBalance='Waist balance leaves a panel with no waist width.';
@@ -104,7 +104,7 @@ export function computeDraft(input) {
   if(![cutLength,...Object.values(front),...Object.values(back)].every(Number.isFinite))return {valid:false,errors:{length:'Measurements are too large to calculate.'},notices};
   if(d.hipDepth===null) notices.push('Seat-line height uses your block proportion; a measured waist-to-seat distance is more personal.');
   if(d.kneeDistance===null || d.kneeWidth===null) notices.push('Knee position or width uses a starting proportion. Check it on your draft.');
-  if(d.frontRise!==null) notices.push(`Front crotch seam target: ${d.frontRise} in. Check along the drawn stitching curve; it does not set vertical depth.`);
+  if(d.frontRise!==null) notices.push(`Front crotch seam target: ${d.frontRise} in. Check along the drawn stitching curve; enter the straight distance in Rise.`);
   if(d.seams.frontOut===0 || d.seams.backOut===0) notices.push('An outseam allowance is zero. Confirm where the stitching sits relative to the selvedge.');
   const waistEdge=(side,panel)=>{
     const inside=panel.seat-panel.offset;
@@ -167,7 +167,7 @@ export function migrateLegacyPreset(p) {
   const length=(value,fallback=null)=>{if(typeof value==='number'&&Number.isFinite(value))return value;const parsed=parseLength(value??'');return parsed.error||parsed.value===null?fallback:parsed.value;};
   return normalizeDraft({waist:length(p.waist),seat:length(p.seat),band:length(p.waistbandwidth,1.5),
     frontRise:length(p.rise),opening:length(p.legOpening),length:length(p.totalLength),
-    notes:'Imported from the original calculator. Enter vertical crotch depth; the old rise was preserved as a curved front-seam target. Confirm whether total length includes the waistband.'});
+    notes:'Imported from the original calculator. Enter the straight Rise measurement; the old rise was preserved as a curved front-seam target. Confirm whether total length includes the waistband.'});
 }
 
 export function compareDrafts(a,b) {

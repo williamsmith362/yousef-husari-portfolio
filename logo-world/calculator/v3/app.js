@@ -44,14 +44,14 @@ const domId=key=>key.replaceAll('.','_');
 const fieldDefinitions={
  mainFields:[
   ['waist','Waist','', 'circumference'],['seat','Seat','', 'circumference'],
-  ['band','Waistband width','Finished vertical distance from the waistband top to its attachment seam.'],['depth','Vertical crotch depth','Top of waistband straight down to crotch level.'],
+  ['band','Waistband width','Finished vertical distance from the waistband top to its attachment seam.'],['depth','Rise','Top of waistband straight down to crotch level.'],
   ['length','Total length','', 'lengthOrigin'],['opening','Flat hem opening','One hem, measured flat.']
  ],
  fitFields:[
   ['waistEase','Body waist ease','Added only when waist source is Body.'],['seatEase','Body seat ease','Added only when seat source is Body.'],
-  ['frontRise','Curved front rise','Optional target along the front stitching seam, from the top of the band. Not vertical depth.'],
+  ['frontRise','Curved front rise','Optional target along the front stitching seam, from the top of the band. Use the Rise field on Measure for the straight distance.'],
   ['hipDepth','Waist to seat','Optional. Straight down from top of band to seat level.'],
-  ['depthDrop','Extra crotch drop','Added to vertical depth. Keep 0 for a finished-pants depth.'],
+  ['depthDrop','Extra crotch drop','Added to Rise. Keep this at 0 when using the finished pants measurement.'],
   ['kneeDistance','Crotch to knee','Optional vertical distance. Blank uses 40% of the leg.'],
   ['kneeWidth','Flat knee width','Optional finished target. Blank uses hem + ½″.'],
   ['calfWidth','Flat point 2 width','Optional finished target, halfway from knee to hem. Blank uses hem width.']
@@ -59,7 +59,7 @@ const fieldDefinitions={
  proportionFields:[
   ['frontShare','Front share of leg','Back receives the remainder. Your default is 45% front / 55% back.','ratio'],
   ['waistBalance','Back waist advantage','Back panel exceeds front by this amount; total waist stays unchanged.'],
-  ['seatRatio','Seat height proportion','Used only when waist-to-seat is blank. Default 75% of panel crotch depth.','ratio'],
+  ['seatRatio','Seat height proportion','Used only when waist-to-seat is blank. Default 75% of rise height.','ratio'],
   ['forkDeduction','Fork formula deduction','Q = finished seat ÷ 8 − this value. Front extension Q/2; back extension Q.']
  ],
  fabricFields:[['fabricWidth','Fabric width','Selvedge: measure the full edge-to-edge width. Regular: enter the usable width after excluding unusable edges. Measure unfolded, across the full cloth.'],['extraLength','Extra fabric','Extra length for the waistband, pockets, fly, belt loops and layout adjustments. Start with 12 inches and increase it for your design. Use 0 for leg panels only.']],
@@ -222,13 +222,13 @@ $('results').addEventListener('click',event=>{
 });
 function renderFormulas(){
  const d=state.draft;
- $('formulaNotes').innerHTML=`<p><strong>Measurement convention.</strong> Waist and seat are converted to full circumferences. Finished-pants inputs get no added ease. Body inputs receive only their selected ease.</p><p><code>Outseam = finished total length − waistband width</code><br><code>Rise height = vertical depth + drop − waistband width</code><br><code>Leg span = outseam − rise height</code></p><p><code>Front waist = waist target / 4 − back advantage / 2</code><br><code>Back waist = waist target / 4 + back advantage / 2</code><br>The two front and two back allocations total your waist target before shaping. Waistband values in the table follow the sloped lines after the center points are moved.</p><p><code>Base seat width = seat target / 4</code><br><code>Q = seat target / 8 − deduction</code><br><code>Front rise width = seat width + Q/2</code><br><code>Back rise width = seat width + Q</code><br><code>Back seat offset = Q/4</code><br>Offset is a construction reference; confirm how it is used when shaping your back curve.</p><p><code>Front leg width = circumference × ${Number((d.frontShare*100).toFixed(2))}%</code><br><code>Back leg width = circumference × ${Number(((1-d.frontShare)*100).toFixed(2))}%</code><br>The split preserves each selected circumference. Blank knee uses flat hem + ½″; blank point 2 uses hem width.</p><p>Without measured positions: seat height is ${Number((d.seatRatio*100).toFixed(2))}% of panel crotch depth; knee is 40% of the leg span. Point 2 is halfway from knee to hem.</p><p>Front-rise seam length is a curved target and is never converted into vertical depth. The preview illustrates shaping. Check the crotch seam length, darts or yoke shaping, and matching seam lengths on your drawn pattern.</p><p><a href="https://pubs.nmsu.edu/_c/C227/index.html" target="_blank" rel="noopener">Measurement reference: crotch depth vs. crotch length ↗</a></p>`;
+ $('formulaNotes').innerHTML=`<p><strong>Measurement convention.</strong> Waist and seat are converted to full circumferences. Finished-pants inputs get no added ease. Body inputs receive only their selected ease.</p><p><code>Outseam = finished total length − waistband width</code><br><code>Rise height = rise + drop − waistband width</code><br><code>Leg span = outseam − rise height</code></p><p><code>Front waist = waist target / 4 − back advantage / 2</code><br><code>Back waist = waist target / 4 + back advantage / 2</code><br>The two front and two back allocations total your waist target before shaping. Waistband values in the table follow the sloped lines after the center points are moved.</p><p><code>Base seat width = seat target / 4</code><br><code>Q = seat target / 8 − deduction</code><br><code>Front rise width = seat width + Q/2</code><br><code>Back rise width = seat width + Q</code><br><code>Back seat offset = Q/4</code><br>Offset is a construction reference; confirm how it is used when shaping your back curve.</p><p><code>Front leg width = circumference × ${Number((d.frontShare*100).toFixed(2))}%</code><br><code>Back leg width = circumference × ${Number(((1-d.frontShare)*100).toFixed(2))}%</code><br>The split preserves each selected circumference. Blank knee uses flat hem + ½″; blank point 2 uses hem width.</p><p>Without measured positions: seat height is ${Number((d.seatRatio*100).toFixed(2))}% of rise height; knee is 40% of the leg span. Point 2 is halfway from knee to hem.</p><p>Front-rise seam length is a curved target and is kept separate from the Rise input. The preview illustrates shaping. Check the crotch seam length, darts or yoke shaping, and matching seam lengths on your drawn pattern.</p><p><a href="https://pubs.nmsu.edu/_c/C227/index.html" target="_blank" rel="noopener">Measurement reference: straight rise and curved seam length ↗</a></p>`;
 }
 function renderComparison(){
  const p=state.profiles.find(p=>p.id===state.comparisonId);
  if(!p){$('comparison').innerHTML='<p class="compare-note">Save a draft, then choose it here to compare both panels.</p>';return;}
  const other=computeDraft(p.draft);
- if(!result.valid||!other.valid){$('comparison').innerHTML='<p class="compare-note">Both drafts need valid measurements. Imported old presets need a vertical crotch depth before comparison.</p>';return;}
+ if(!result.valid||!other.valid){$('comparison').innerHTML='<p class="compare-note">Both drafts need valid measurements. Imported old presets need a Rise measurement before comparison.</p>';return;}
  const delta=x=>x===null?'—':`${Math.abs(x)<0.00001?'':x>0?'+':'−'}${fl(Math.abs(x))}`;
  $('comparison').innerHTML=`<p class="compare-note">Current minus ${escapeHTML(p.name)}. Updates as you measure.</p><table class="measure-table compare-table"><thead><tr><th scope="col">Difference</th><th scope="col">Front Δ</th><th scope="col">Back Δ</th></tr></thead><tbody>${compareDrafts(result,other).map(r=>`<tr><td>${r.label}</td><td class="${r.df>0?'positive':r.df<0?'negative':''}">${delta(r.df)}</td><td class="${r.db>0?'positive':r.db<0?'negative':''}">${delta(r.db)}</td></tr>`).join('')}</tbody></table>`;
 }
@@ -363,7 +363,7 @@ $('loadLatest').addEventListener('click',()=>{otherTabChanged=false;state=initia
 $('exportThisTab').addEventListener('click',()=>$('exportBackup').click());
 window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist();});
 syncInputs();renderProfiles();render();persist();
-if(state.profiles.some(p=>p.draft.depth===null&&p.draft.frontRise!==null))toast('Your old presets are here. Add vertical depth when you load one.');
+if(state.profiles.some(p=>p.draft.depth===null&&p.draft.frontRise!==null))toast('Your old presets are here. Add a Rise measurement when you load one.');
 
 // Keep installed copies current and ready to reopen offline.
 if('serviceWorker'in navigator)window.addEventListener('load',()=>{navigator.serviceWorker.register(new URL('../sw.js',import.meta.url)).catch(()=>{});},{once:true});
