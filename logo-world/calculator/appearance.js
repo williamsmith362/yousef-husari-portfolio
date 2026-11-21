@@ -3,14 +3,13 @@
  const key='sp_workspace_v2',themes=['parchment','indigo','midnight'];
  function readTheme(){
   try{
-   const workspace=JSON.parse(localStorage.getItem(key));
-   if(themes.includes(workspace?.theme))return workspace.theme;
+   const saved=localStorage.getItem('sp_theme');
+   if(themes.includes(saved))return saved;
   }catch{}
-  try{const old=localStorage.getItem('sp_theme');if(themes.includes(old))return old;}catch{}
-  return 'parchment';
+  return 'midnight';
  }
  function applyTheme(theme){
-  if(!themes.includes(theme))theme='parchment';
+  if(!themes.includes(theme))theme='midnight';
   document.documentElement.dataset.theme=theme;
   const dark=theme!=='parchment',label=dark?'Switch to light mode':'Switch to dark mode';
   const button=document.getElementById('themeToggle');
