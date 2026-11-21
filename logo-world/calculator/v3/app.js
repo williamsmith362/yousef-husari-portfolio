@@ -53,7 +53,8 @@ const fieldDefinitions={
   ['depthDrop','Extra crotch depth','Added to Rise. Keep this at 0 when using the finished pants measurement.'],
   ['thighWidth','Thigh width','Measure one leg laid flat, 2″ (5.08 cm) below the crotch. Leave blank to keep the default curve.'],
   ['kneeDistance','Rise to knee height','Measure vertically from crotch level to the knee. Blank uses 40% of the leg.'],
-  ['kneeWidth','Knee width','Measure one knee laid flat. Blank uses hem width + ½″.']
+  ['kneeWidth','Knee width','Measure one knee laid flat. Blank uses hem width + ½″.'],
+  ['fitOpening','Hem width','Optional. Measure one hem laid flat. Leave blank to use Hem width from Measure.']
  ],
  proportionFields:[
   ['frontShare','Front share of leg','Back receives the remainder. Your default is 45% front / 55% back.','ratio'],
@@ -129,6 +130,7 @@ let popupKey=null,popupFull=false;
 let allMeasurementsOpen=false;
 function render(){
  result=computeDraft(state.draft);
+ $('fitOpening').placeholder=formatNumber(state.draft.opening,state.unit)||'—';
  $('waistGuideContent').innerHTML=waistConstructionGuide(state.unit,state.fractions);
  const draftErrors=Object.fromEntries([...inputErrors].filter(([k])=>!FABRIC_KEYS.has(k)&&!$(domId(k)).disabled));
  if(Object.keys(draftErrors).length)result={valid:false,errors:{...result.errors,...draftErrors},notices:[]};
@@ -299,7 +301,7 @@ document.addEventListener('input',e=>{
  if(!fieldKinds.has(key))return;touched.add(key);
  const kind=fieldKinds.get(key),parsed=parseLength(el.value,['ratio','percent'].includes(kind)?'in':state.unit);
  if(parsed.error)inputErrors.set(key,parsed.error);
- else if(parsed.value===null && !['waist','seat','depth','length','opening','frontRise','thighWidth','kneeDistance','kneeWidth','fabricWidth'].includes(key)) inputErrors.set(key,'Enter a value; use 0 if none.');
+ else if(parsed.value===null && !['waist','seat','depth','length','opening','fitOpening','frontRise','thighWidth','kneeDistance','kneeWidth','fabricWidth'].includes(key)) inputErrors.set(key,'Enter a value; use 0 if none.');
  else{inputErrors.delete(key);setValue(key,kind==='ratio'&&parsed.value!==null?parsed.value/100:parsed.value);}
  state.pendingInputs||={};
  if(inputErrors.has(key))state.pendingInputs[key]=el.value.slice(0,100);else delete state.pendingInputs[key];

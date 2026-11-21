@@ -2,14 +2,14 @@
 export const DEFAULT_DRAFT = {
   waist:null, waistSource:'garment', waistFlat:false, waistEase:0.5,
   seat:null, seatSource:'garment', seatFlat:false, seatEase:2,
-  band:1.5, depth:null, depthDrop:0, length:null, lengthOrigin:'top', opening:null,
+  band:1.5, depth:null, depthDrop:0, length:null, lengthOrigin:'top', opening:null, fitOpening:null,
   frontRise:null, thighWidth:null, kneeDistance:null, kneeWidth:null,
   frontShare:0.45, waistBalance:0.5, seatRatio:0.75, forkDeduction:0.5,
   fabricType:'selvedge', fabricWidth:null, extraLength:12, shrinkLength:0, shrinkWidth:0, notes:'',
   seams:{inseam:0.625, frontOut:0.5, backOut:0.5, waist:0.5, frontStraight:0.25, frontCurve:0.5, hem:1}
 };
-const LENGTH_KEYS = ['waist','waistEase','seat','seatEase','band','depth','depthDrop','length','opening','frontRise','thighWidth','kneeDistance','kneeWidth','waistBalance','forkDeduction','fabricWidth','extraLength'];
-const OPTIONAL = new Set(['waist','seat','depth','length','opening','frontRise','thighWidth','kneeDistance','kneeWidth','fabricWidth']);
+const LENGTH_KEYS = ['waist','waistEase','seat','seatEase','band','depth','depthDrop','length','opening','fitOpening','frontRise','thighWidth','kneeDistance','kneeWidth','waistBalance','forkDeduction','fabricWidth','extraLength'];
+const OPTIONAL = new Set(['waist','seat','depth','length','opening','fitOpening','frontRise','thighWidth','kneeDistance','kneeWidth','fabricWidth']);
 export const clone = value => JSON.parse(JSON.stringify(value));
 export const waistPoint=(side,inside)=>({x:inside-(side==='front'?.5:.75),y:side==='front'?.5:-.375});
 
@@ -67,7 +67,7 @@ export function computeDraft(input) {
   for(const [key,label] of Object.entries(required)) if(d[key]===null || d[key]<=0) errors[key]=`Enter a positive ${label.toLowerCase()}.`;
   for(const key of LENGTH_KEYS) if(!['fabricWidth','extraLength',...(d.waistSource==='body'?[]:['waistEase']),...(d.seatSource==='body'?[]:['seatEase'])].includes(key) && d[key]!==null && d[key]<0) errors[key]='Use zero or a positive measurement.';
   for(const [k,value] of Object.entries(d.seams)) if(value<0) errors[`seams.${k}`]='Allowances cannot be negative.';
-  for(const key of ['frontRise','thighWidth','kneeDistance','kneeWidth']) if(d[key]!==null && d[key]<=0) errors[key]='Enter a positive measurement or leave blank.';
+  for(const key of ['frontRise','thighWidth','kneeDistance','kneeWidth','fitOpening']) if(d[key]!==null && d[key]<=0) errors[key]='Enter a positive measurement or leave blank.';
   if(d.frontShare<0.3 || d.frontShare>0.7) errors.frontShare='Front share must be between 30% and 70%.';
   if(d.seatRatio<=0 || d.seatRatio>=1) errors.seatRatio='Seat-line proportion must be between 0 and 1.';
   if(Object.keys(errors).length) return {valid:false,errors,notices};
@@ -93,8 +93,9 @@ export function computeDraft(input) {
   const thighY=d.thighWidth===null?null:2;
   if(thighY!==null&&kneeY<=thighY)return {valid:false,errors:{thighWidth:'The knee must sit below the thigh line.'},notices};
   const thighCirc=d.thighWidth===null?null:2*d.thighWidth;
-  const kneeCirc=(d.kneeWidth===null?d.opening+0.5:d.kneeWidth)*2;
-  const hemCirc=d.opening*2;
+  const hemWidth=d.fitOpening??d.opening;
+  const kneeCirc=(d.kneeWidth??(hemWidth+0.5))*2;
+  const hemCirc=hemWidth*2;
   const kneeToHem=leg-kneeY;
   const front={waist:frontWaist, seat:H/4, riseH:H/4+Q/2, offset:0, thigh:thighCirc===null?null:thighCirc*d.frontShare, knee:kneeCirc*d.frontShare,hem:hemCirc*d.frontShare};
   const back={waist:backWaist, seat:H/4, riseH:H/4+Q, offset:Q/4, thigh:thighCirc===null?null:thighCirc*(1-d.frontShare), knee:kneeCirc*(1-d.frontShare),hem:hemCirc*(1-d.frontShare)};

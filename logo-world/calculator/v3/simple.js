@@ -16,9 +16,6 @@ const nav=document.querySelector('.steps');
 nav.innerHTML=stepNames.map((name,i)=>`<button type="button" data-step="${i}"><span class="step-dot">${i+1}</span>${name}</button>`).join('');
 const drafts=document.querySelector('.draft-bar');drafts.hidden=true;
 document.querySelector('.drafts-toggle').addEventListener('click',e=>{drafts.hidden=!drafts.hidden;e.currentTarget.setAttribute('aria-expanded',String(!drafts.hidden));$('moreMenu').open=false;});
-const hemField=$('opening').closest('.field');
-const hemAnchor=document.createComment('Hem width position on Measure');
-hemField.before(hemAnchor);
 let step=0;
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const motionTiming={duration:250,easing:'cubic-bezier(.2, .7, .3, 1)'};
@@ -27,7 +24,6 @@ function show(n,scroll=true){
  const nextStep=Math.max(0,Math.min(3,n));
  const changed=nextStep!==step;
  step=nextStep;
- if(changed){if(step===1)$('fitFields').append(hemField);else hemAnchor.after(hemField);}
  cards.forEach((card,i)=>{card.hidden=i!==step;});
  [...nav.children].forEach((button,i)=>{
   if(i===step)button.setAttribute('aria-current','step');
