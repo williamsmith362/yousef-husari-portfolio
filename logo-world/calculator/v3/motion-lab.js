@@ -107,27 +107,88 @@ export function animateMeasurementChange(figure,previous){
  }
 }
 
-export function revealFabricLayout(root){
- if(!motionEnabled()||!root?.querySelector('.layout-details[open]'))return;
- const pieces=root.querySelectorAll('.layout-panel');
- pieces.forEach((piece,i)=>{
-  for(const part of piece.querySelectorAll('.layout-outline,.layout-grain,.layout-panel-label')){
-   entrance(part,piece.dataset.panel==='front'?-12:12,-8,{duration:380,delay:35+i*58,curve:settle,opacity:.12});
-  }
+export function connectDisclosureMotion(root){
+ if(CSS.supports('selector(details::details-content)')&&CSS.supports('block-size','calc-size(auto, size)'))return;
+ const closing=new WeakMap();
+ root.addEventListener('click',event=>{
+  const summary=event.target.closest('summary');
+  const details=summary?.parentElement;
+  if(event.defaultPrevented||!motionEnabled()||!details?.open||details.matches('.more-menu'))return;
+  event.preventDefault();
+  const previous=closing.get(details);
+  if(previous){previous.cancel();return;}
+  const bottom=summary.getBoundingClientRect().bottom;
+  const bounds=details.getBoundingClientRect();
+  const previousOverflow=details.style.overflow;
+  details.style.overflow='clip';
+  const collapse=animate(details,[{height:`${bounds.height}px`},{height:`${bottom-bounds.top}px`}],{duration:250});
+  if(!collapse){details.style.overflow=previousOverflow;details.open=false;return;}
+  closing.set(details,collapse);
+  const finish=close=>{
+   if(close)details.open=false;
+   details.style.overflow=previousOverflow;
+   closing.delete(details);
+  };
+  collapse.finished.then(()=>finish(true),()=>finish(!motionEnabled()));
  });
+}
+
+export function revealChangedContent(element){
+ entrance(element,0,4,{duration:230,opacity:.63});
 }
 
 export function revealEstimate(root){
  if(!motionEnabled()||!root)return;
- const total=root.querySelector('.fabric-total');
- animate(total,[
-  {opacity:.15,translate:'0px 7px',clipPath:'inset(0 0 100% 0)'},
-  {opacity:1,translate:'0px 0px',clipPath:'inset(0 0 0% 0)'}
- ],{duration:380,curve:settle});
+ // Keep the final amount readable during the reveal.
+ entrance(root.querySelector('.fabric-total'),0,5,{duration:330,curve:settle,opacity:.52});
  for(const [i,fact] of [...root.querySelectorAll('.calc-facts>div')].entries()){
-  entrance(fact,0,6,{duration:285,delay:85+i*44,opacity:.2});
+  entrance(fact,0,5,{duration:260,delay:42+i*36,opacity:.45});
  }
- revealFabricLayout(root);
+}
+
+export function connectFabricUnroll(root){
+ let svg=null,progress=0,frame=0;
+ const print=matchMedia('print');
+ function showFull(){
+  const clip=svg?.querySelector('[data-roll-clip]');
+  if(clip)clip.setAttribute('height',svg.viewBox.baseVal.height);
+  svg?.querySelector('[data-roll-edge]')?.classList.remove('is-rolling');
+ }
+ function draw(){
+  frame=0;
+  const next=root.querySelector('.cutting-layout');
+  if(next!==svg){svg=next;progress=0;}
+  if(!svg)return;
+  const clip=svg.querySelector('[data-roll-clip]');
+  const edge=svg.querySelector('[data-roll-edge]');
+  if(!clip||!edge)return;
+  const layout=svg.getBoundingClientRect();
+  if(!layout.height)return;
+  if(!motionEnabled()||print.matches){showFull();return;}
+  const viewportHeight=window.innerHeight;
+  const actions=document.querySelector('.step-actions')?.getBoundingClientRect().height??0;
+  const available=viewportHeight-actions;
+  const travel=Math.max(85,Math.min(165,layout.height*.62));
+  const shown=(available-layout.top-30)/travel;
+  const atEnd=window.scrollY+viewportHeight>=document.documentElement.scrollHeight-2;
+  // Keep a viewed layout open when the user scrolls back up.
+  progress=Math.max(progress,atEnd&&shown>0?1:Math.min(1,Math.max(0,shown)));
+  const top=Number(svg.dataset.rollTop),end=Number(svg.dataset.rollEnd);
+  const leaf=top+(end-top)*progress;
+  clip.setAttribute('height',progress===1?svg.viewBox.baseVal.height:leaf);
+  edge.setAttribute('transform',`translate(0 ${leaf})`);
+  edge.classList.toggle('is-rolling',progress>0&&progress<1);
+ }
+ function refresh(){if(!frame)frame=requestAnimationFrame(draw);}
+ window.addEventListener('scroll',refresh,{passive:true});
+ window.addEventListener('resize',refresh);
+ window.addEventListener('beforeprint',showFull);
+ window.addEventListener('afterprint',refresh);
+ reducedMotion.addEventListener?.('change',refresh);
+ root.addEventListener('toggle',refresh,true);
+ new MutationObserver(refresh).observe(root,{childList:true});
+ refresh();
+ return refresh;
 }
 
 export function releaseLegGhosts(chart){

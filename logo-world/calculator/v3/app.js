@@ -1,5 +1,5 @@
 import {createLegPlayground} from './leg-playground.js';
-import {animateMeasurementChange,captureMeasurements,revealPattern} from './motion-lab.js';
+import {animateMeasurementChange,captureMeasurements,revealChangedContent,revealPattern} from './motion-lab.js';
 import {waistConstructionGuide} from './waist-guide.js';
 import {escapeHTML,patternView} from './pattern-view.js';
 import {layoutView} from './layout-view.js';
@@ -218,7 +218,9 @@ function updateOverview(){
  const previous=captureMeasurements(figure);
  figure.innerHTML=overviewGraphic(rows);
  animateMeasurementChange(figure,previous);
- $('measurementFocus').innerHTML=measurementFocus(rows);
+ const focus=$('measurementFocus');
+ focus.innerHTML=measurementFocus(rows);
+ revealChangedContent(focus);
 }
 $('results').addEventListener('change',event=>{
  const checkbox=event.target.closest('[data-overview-measurement]');
@@ -295,7 +297,7 @@ function renderFabric(){
  const layoutOpen=$('fabricResult').querySelector('.layout-details')?.open??true;
  const rowCount=plan.rows.length,rowWord=rowCount===1?'row':'rows';
  const rowSummary=plan.fabricType==='selvedge'?`Selvedge · ${rowCount} ${rowWord}.`:rowCount===1?'All 4 panels fit across.':`4 panels arranged in ${rowCount} rows.`;
- $('fabricResult').innerHTML=`<div class="fabric-estimate"><p class="fabric-caption">ESTIMATED FABRIC</p><div class="fabric-total"><strong>${primary}<small> ${unit}</small></strong><span>${state.unit==='cm'?yards+' yd':meters+' m'}</span></div><p class="estimate-note">${rowSummary} Includes allowances and extra fabric.</p><dl class="calc-facts"><div><dt>Fabric for legs</dt><dd>${fl(plan.panelCloth)}<small>${rowCount} × ${fl(result.cutLength)}</small></dd></div><div><dt>Extra fabric</dt><dd>${fl(state.draft.extraLength)}</dd></div><div><dt>Usable width</dt><dd>${fl(plan.usableWidth)}</dd></div></dl><details class="layout-details" ${layoutOpen?'open':''}><summary>Cutting layout <span>${Math.max(...plan.rows.map(row=>row.length))} across · ${rowCount} ${rowWord}</span></summary><figure class="layout-figure">${layoutView(result,plan,state.draft,state.unit,state.fractions)}<figcaption>Single layer · Grain runs lengthwise${state.draft.shrinkLength||state.draft.shrinkWidth?' · After shrinkage':''}</figcaption></figure><p class="layout-caption">${rowCount} ${rowWord} × ${fl(result.cutLength)} = ${fl(plan.panelCloth)} for legs.${state.draft.fabricType==='regular'&&rowCount>1?` All four need ${fl(plan.fourAcrossWidth)} of usable width.`:''}</p></details></div><p class="fabric-detail">${plan.fabricType==='selvedge'?'Selvedge places at most two panels per row, one on each original fabric edge.':'Regular fabric fits as many of the four panels across the usable width as their cutting widths allow.'} Widths include your cutting allowances. Each front needs ${fl(result.front.cutWidth)} and each back needs ${fl(result.back.cutWidth)} across. Every row is ${fl(result.cutLength)} long.</p><p class="fabric-limit">This is a straight-grain layout estimate using each panel’s full width, without shaped nesting or turning pieces across the grain. Extra fabric covers the waistband, yoke, pockets, fly and belt loops. Shrinkage is applied once to width and purchase length.</p>`;
+ $('fabricResult').innerHTML=`<div class="fabric-estimate"><p class="fabric-caption">ESTIMATED FABRIC</p><div class="fabric-total"><strong>${primary}<small> ${unit}</small></strong><span>${state.unit==='cm'?yards+' yd':meters+' m'}</span></div><p class="estimate-note">${rowSummary} Includes allowances and extra fabric.</p><dl class="calc-facts"><div><dt>Fabric for legs</dt><dd>${fl(plan.panelCloth)}<small>${rowCount} × ${fl(result.cutLength)}</small></dd></div><div><dt>Extra fabric</dt><dd>${fl(state.draft.extraLength)}</dd></div><div><dt>Usable width</dt><dd>${fl(plan.usableWidth)}</dd></div></dl><details class="layout-details" ${layoutOpen?'open':''}><summary>Cutting layout <span>${Math.max(...plan.rows.map(row=>row.length))} across · ${rowCount} ${rowWord}</span></summary><figure class="layout-figure"><div class="fabric-unroll-stage">${layoutView(result,plan,state.draft,state.unit,state.fractions)}</div><figcaption>Single layer · Grain runs lengthwise${state.draft.shrinkLength||state.draft.shrinkWidth?' · After shrinkage':''}</figcaption></figure><p class="layout-caption">${rowCount} ${rowWord} × ${fl(result.cutLength)} = ${fl(plan.panelCloth)} for legs.${state.draft.fabricType==='regular'&&rowCount>1?` All four need ${fl(plan.fourAcrossWidth)} of usable width.`:''}</p></details></div><p class="fabric-detail">${plan.fabricType==='selvedge'?'Selvedge places at most two panels per row, one on each original fabric edge.':'Regular fabric fits as many of the four panels across the usable width as their cutting widths allow.'} Widths include your cutting allowances. Each front needs ${fl(result.front.cutWidth)} and each back needs ${fl(result.back.cutWidth)} across. Every row is ${fl(result.cutLength)} long.</p><p class="fabric-limit">This is a straight-grain layout estimate using each panel’s full width, without shaped nesting or turning pieces across the grain. Extra fabric covers the waistband, yoke, pockets, fly and belt loops. Shrinkage is applied once to width and purchase length.</p>`;
 
 }
 document.addEventListener('fabric:calculate',()=>{

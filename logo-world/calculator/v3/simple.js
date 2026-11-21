@@ -1,6 +1,6 @@
 import './app.js';
 import {openMeasurementHelp} from './measurement-help.js';
-import {confirmField,enterStep,revealEstimate,revealFabricLayout,revealPattern} from './motion-lab.js';
+import {connectDisclosureMotion,connectFabricUnroll,confirmField,enterStep,revealChangedContent,revealEstimate,revealPattern} from './motion-lab.js';
 const $=id=>document.getElementById(id);
 const cards=[$('measure'),null,$('draft'),$('cloth')];
 const fit=document.createElement('section');fit.id='adjust';fit.className='card';fit.innerHTML='<div class="section-heading"><h2>Fine-tune your fit</h2></div><p class="adjust-intro">Open only the options you want to change.</p>';
@@ -41,6 +41,7 @@ function show(n,scroll=true){
  if(direction){
   enterStep(heading.parentElement,cards[step],direction);
   if(step===2)revealPattern($('overviewGraphic'));
+  if(step===3)refreshFabricUnroll();
  }
  if(scroll){
   heading.focus({preventScroll:true});
@@ -52,9 +53,12 @@ document.addEventListener('change',event=>{
  const input=event.target.closest('input[data-field]:not([type=hidden])');
  if(input)confirmField(input);
 });
-$('fabricResult').addEventListener('click',event=>{
- const summary=event.target.closest('.layout-details > summary');
- if(summary&&!summary.parentElement.open)requestAnimationFrame(()=>revealFabricLayout($('fabricResult')));
+const refreshFabricUnroll=connectFabricUnroll($('fabricResult'));
+connectDisclosureMotion(document);
+document.addEventListener('click',event=>{
+ const tab=event.target.closest('#infoDialog [role=tab]');
+ if(!tab)return;
+ revealChangedContent(document.getElementById(tab.getAttribute('aria-controls')));
 });
 document.addEventListener('click',e=>{const b=e.target.closest('[data-recover]');if(!b)return;show(+b.dataset.recover);const field=[...document.querySelectorAll('input[data-field]')].find(input=>input.dataset.field===b.dataset.errorField);if(field){const dialog=field.closest('dialog');if(dialog&&!dialog.open)dialog.showModal();field.closest('details')?.setAttribute('open','');field.focus();}});
 nav.addEventListener('click',e=>{const b=e.target.closest('[data-step]');if(b)show(+b.dataset.step);});
@@ -66,6 +70,7 @@ $('stepNext').addEventListener('click',()=>{
   if(invalid){invalid.closest('details')?.setAttribute('open','');invalid.focus();return;}
   const estimate=$('fabricResult');
   revealEstimate(estimate);
+  refreshFabricUnroll();
   estimate.scrollIntoView({block:'start',behavior:reducedMotion.matches?'instant':'smooth'});
   return;
  }
