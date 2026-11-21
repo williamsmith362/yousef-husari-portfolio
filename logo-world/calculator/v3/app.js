@@ -111,7 +111,7 @@ function renderProfiles(){
  }
 }
 const fl=value=>formatLength(value,state.unit,state.fractions);
-let overviewKey='waist';
+let overviewKey='all';
 function overviewRow(){
  if(overviewKey==='all'||overviewKey==='none')return {key:overviewKey,f:null,b:null};
  return result.rows.find(row=>row.key===overviewKey)||result.rows[0];
