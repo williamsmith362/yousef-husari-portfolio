@@ -1,15 +1,17 @@
 import {formatLength,waistPoint} from './model.js';
 
-export const panelBounds=v=>{const inside=v.seat-v.offset;return {inside,outside:inside-v.waist,min:Math.min(0,inside-v.waist),max:Math.max(inside,v.seat,v.riseH,v.knee,v.calf,v.hem)};};
+export const panelBounds=v=>{const inside=v.seat-v.offset;return {inside,outside:inside-v.waist,min:Math.min(0,inside-v.waist),max:Math.max(inside,v.seat,v.riseH,v.thigh??0,v.knee,v.calf,v.hem)};};
 export {waistPoint} from './model.js';
 export function panelOutline(r,side,xy,shapeWaist=false){
  const v=r[side],bounds=panelBounds(v);
   const ys=[r.rise,r.rise+r.kneeY,r.rise+r.kneeY+r.section2,r.panelLength];
   const xs=[v.riseH,v.knee,v.calf,v.hem];
+  if(r.thighY!==null){ys.splice(1,0,r.rise+r.thighY);xs.splice(1,0,v.thigh);}
+  const segments=ys.length-1;
   const ds=ys.slice(1).map((y,i)=>(xs[i+1]-xs[i])/(y-ys[i]));
-  const m=[ds[0],0,0,ds[2]];
-  for(let i=1;i<3;i++)m[i]=ds[i-1]*ds[i]<=0?0:2/(1/ds[i-1]+1/ds[i]);
-  for(let i=0;i<3;i++){
+  const m=[ds[0],...Array(segments-1).fill(0),ds.at(-1)];
+  for(let i=1;i<segments;i++)m[i]=ds[i-1]*ds[i]<=0?0:2/(1/ds[i-1]+1/ds[i]);
+  for(let i=0;i<segments;i++){
    if(ds[i]===0){m[i]=m[i+1]=0;continue;}
    const a=m[i]/ds[i],b=m[i+1]/ds[i],norm=a*a+b*b;
    if(norm>9){const t=3/Math.sqrt(norm);m[i]=t*a*ds[i];m[i+1]=t*b*ds[i];}
@@ -27,7 +29,7 @@ export function panelOutline(r,side,xy,shapeWaist=false){
    const handle=straightDepth>0?Math.min(k*curveDepth/straightDepth,straightRun>0?(1-k)*curveRun/straightRun:Infinity):0;
    d+=`L ${xy(v.seat,r.seatY)} C ${xy(v.seat+straightRun*handle,r.seatY+straightDepth*handle)} ${xy(v.riseH-k*curveRun,r.rise)} ${xy(v.riseH,r.rise)} `;
   }
-  for(let i=0;i<3;i++){const h=ys[i+1]-ys[i];d+=`C ${xy(xs[i]+m[i]*h/3,ys[i]+h/3)} ${xy(xs[i+1]-m[i+1]*h/3,ys[i+1]-h/3)} ${xy(xs[i+1],ys[i+1])} `;}
+  for(let i=0;i<segments;i++){const h=ys[i+1]-ys[i];d+=`C ${xy(xs[i]+m[i]*h/3,ys[i]+h/3)} ${xy(xs[i+1]-m[i+1]*h/3,ys[i+1]-h/3)} ${xy(xs[i+1],ys[i+1])} `;}
   d+=`L ${xy(0,r.panelLength)} L ${xy(0,r.seatY)} C ${xy(0,r.seatY*.58)} ${xy(bounds.outside*.45,r.seatY*.2)} ${xy(bounds.outside,0)} Z`;
  return d;
 }
@@ -37,6 +39,7 @@ export function allowanceOutline(r,side,seams,xy,shapeWaist=false){
  const raw=panelOutline(r,side,(x,y)=>`${x} ${y}`,shapeWaist);
  const commands=raw.match(/[MLCZ][^MLCZ]*/g), points=[], widths=[];
  const front=side==='front',riseCurves=front?1:2;
+ const inseamCurves=r.thighY===null?3:4;
  let current,cubic=0;
  const add=(p,w)=>{if(current){widths.push(w);}points.push(p);current=p;};
  for(const command of commands){
@@ -49,7 +52,7 @@ export function allowanceOutline(r,side,seams,xy,shapeWaist=false){
   }
   if(type==='C'){
    const start=current;
-   const w=front&&cubic===0?seams.frontCurve:cubic<riseCurves+3?seams.inseam:front?seams.frontOut:seams.backOut;
+   const w=front&&cubic===0?seams.frontCurve:cubic<riseCurves+inseamCurves?seams.inseam:front?seams.frontOut:seams.backOut;
    for(let j=1;j<=32;j++){const t=j/32,u=1-t;add([u*u*u*start[0]+3*u*u*t*a[0]+3*u*t*t*a[2]+t*t*t*a[4],u*u*u*start[1]+3*u*u*t*a[1]+3*u*t*t*a[3]+t*t*t*a[5]],w);}cubic++;
   }
  }
@@ -82,6 +85,7 @@ export function patternMeasurement(r,key,side){
   seat:[[0,r.seatY],[v.seat,r.seatY]],
   riseH:[[0,r.rise],[v.riseH,r.rise]],
   offset:[[bounds.inside,r.seatY],[v.seat,r.seatY]],
+  thigh:[[0,r.rise+r.thighY],[v.thigh,r.rise+r.thighY]],
   waist:[[bounds.outside,0],[waistPoint(side,bounds.inside).x,waistPoint(side,bounds.inside).y]],
   section1:[[x,r.rise],[x,knee]],
   knee:[[0,knee],[v.knee,knee]],
@@ -119,7 +123,7 @@ export function patternView(r,{key=null,unit='in',fractions=false,detail=false,s
   const knee=r.rise+r.kneeY,calf=knee+r.section2;
   const d=panelOutline(r,side,xy,true);
   const allowance=seams?allowanceOutline(r,side,seams,xy,true):'';
-  const levels=[[r.seatY,v.seat],[r.rise,v.riseH],[knee,v.knee],[calf,v.calf]].map(([y,x])=>`M ${xy(0,y)} L ${xy(x,y)}`).join(' ');
+  const levels=[[r.seatY,v.seat],[r.rise,v.riseH],...(r.thighY===null?[]:[[r.rise+r.thighY,v.thigh]]),[knee,v.knee],[calf,v.calf]].map(([y,x])=>`M ${xy(0,y)} L ${xy(x,y)}`).join(' ');
   const centerReference=side==='back'?` M ${xy(waistPoint(side,bounds.inside).x,waistPoint(side,bounds.inside).y)} L ${xy(bounds.inside,r.seatY)}`:'';
   const reference=`M ${xy(0,0)} L ${xy(0,r.panelLength)}${centerReference}`;
   const gx=v.hem/2,gy1=r.rise+r.leg*.1,gy2=r.panelLength-r.leg*.1;

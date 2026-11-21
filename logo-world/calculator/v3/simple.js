@@ -16,6 +16,9 @@ const nav=document.querySelector('.steps');
 nav.innerHTML=stepNames.map((name,i)=>`<button type="button" data-step="${i}"><span class="step-dot">${i+1}</span>${name}</button>`).join('');
 const drafts=document.querySelector('.draft-bar');drafts.hidden=true;
 document.querySelector('.drafts-toggle').addEventListener('click',e=>{drafts.hidden=!drafts.hidden;e.currentTarget.setAttribute('aria-expanded',String(!drafts.hidden));$('moreMenu').open=false;});
+const hemField=$('opening').closest('.field');
+const hemAnchor=document.createComment('Hem width position on Measure');
+hemField.before(hemAnchor);
 let step=0;
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const motionTiming={duration:250,easing:'cubic-bezier(.2, .7, .3, 1)'};
@@ -24,6 +27,7 @@ function show(n,scroll=true){
  const nextStep=Math.max(0,Math.min(3,n));
  const changed=nextStep!==step;
  step=nextStep;
+ if(changed){if(step===1)$('fitFields').append(hemField);else hemAnchor.after(hemField);}
  cards.forEach((card,i)=>{card.hidden=i!==step;});
  [...nav.children].forEach((button,i)=>{
   if(i===step)button.setAttribute('aria-current','step');
@@ -81,21 +85,19 @@ const quickHelp={
  waistEase:'Added only to a body waist measurement.',
  seatEase:'Added only to a body seat measurement.',
  frontRise:'Optional. Measure along the curved front seam.',
- hipDepth:'Optional. Straight down to the fullest seat.',
+ thighWidth:'Optional. Measure one leg flat, 1″ (2.54 cm) below the crotch.',
  depthDrop:'Extra room below crotch level. Start with 0.',
  kneeDistance:'Optional. Straight down from crotch to knee.',
  kneeWidth:'Optional. Width across one knee, laid flat.',
- calfWidth:'Optional. Width halfway from knee to hem.',
  frontShare:'How the leg width is split between panels.',
  waistBalance:'Extra back waist width. Total waist stays the same.',
- seatRatio:'Seat-line position when no seat depth is entered.',
+ seatRatio:'Seat height as a percentage of Rise height.',
  forkDeduction:'Changes the calculated crotch extensions.',
  fabricWidth:'Measure the full, unfolded width of usable cloth.',
  extraLength:'For the waistband, pockets and small pieces.',
  shrinkLength:'Use 0 for cloth already washed and dried.',
  shrinkWidth:'Use your tested rate, or 0 for prewashed cloth.'
 };
-document.querySelector('label[for="opening"]').childNodes[0].textContent='Hem width';
 for(const field of document.querySelectorAll('.field')){const label=field.querySelector('label');const help=field.querySelector('.field-help');if(!label)continue;const id=label.htmlFor;const content=help?.innerHTML;if(!mainHelp.has(id)&&!content)continue;const title=label.childNodes[0].textContent.trim();const unit=label.querySelector('span');const row=document.createElement('div');row.className='field-label';label.before(row);row.append(label);const b=document.createElement('button');b.type='button';b.className='info-button';b.textContent='i';b.setAttribute('aria-label',`About ${title.toLowerCase()}`);b.addEventListener('click',()=>{b.focus();if(mainHelp.has(id))openMeasurementHelp(id,title,openInfo);else openInfo(title,content);});row.append(b);if(unit)row.append(unit);if(help){help.classList.replace('field-help','field-guideline');help.textContent=quickHelp[id]||help.textContent;row.after(help);}}
 const caption=document.querySelector('.input-caption');if(caption){const b=document.createElement('button');b.className='info-button';b.type='button';b.textContent='i';b.setAttribute('aria-label','About measurements');b.onclick=()=>{b.focus();openMeasurementHelp('overview','Taking measurements',openInfo);};$('measureTitle').append(' ',b);}
 for(const detail of document.querySelectorAll('details.disclosure')){const help=detail.querySelector(':scope > .details-body > p.field-help');if(!help)continue;const title=detail.querySelector('summary').childNodes[0].textContent.trim();const btn=document.createElement('button');btn.className='text-button';btn.type='button';btn.textContent='ⓘ About '+title.toLowerCase();btn.onclick=()=>openInfo(title,help.innerHTML);help.before(btn);}
