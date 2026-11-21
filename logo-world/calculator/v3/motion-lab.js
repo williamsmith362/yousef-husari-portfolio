@@ -147,42 +147,92 @@ export function revealEstimate(root){
 }
 
 export function connectFabricUnroll(root){
- let svg=null,progress=0,frame=0;
+ let svg=null,frame=0,played=false,startTime=null,previousTime=null,scrollStart=0,progress=1;
+ let compact=false,replayRequested=false;
  const print=matchMedia('print');
- function showFull(){
+ const duration=1320;
+ const clamp=value=>Math.max(0,Math.min(1,value));
+
+ function paint(value){
   const clip=svg?.querySelector('[data-roll-clip]');
-  if(clip)clip.setAttribute('height',svg.viewBox.baseVal.height);
-  svg?.querySelector('[data-roll-edge]')?.classList.remove('is-rolling');
+  const edge=svg?.querySelector('[data-roll-edge]');
+  if(!clip||!edge)return;
+  const top=Number(svg.dataset.rollTop),end=Number(svg.dataset.rollEnd);
+  const leaf=top+(end-top)*value;
+  clip.setAttribute('height',value===1?svg.viewBox.baseVal.height:leaf);
+  edge.setAttribute('transform',`translate(0 ${leaf})`);
+  edge.classList.toggle('is-rolling',value<1);
  }
- function draw(){
+
+ function refresh(){if(!frame)frame=requestAnimationFrame(draw);}
+ function reset(){
+  played=false;
+  startTime=null;previousTime=null;
+  progress=1;
+ }
+ function setSize(){
+  const stage=svg.closest('.fabric-unroll-stage');
+  stage.dataset.layoutSize=compact?'compact':'full';
+  for(const button of root.querySelectorAll('[data-layout-size-choice]')){
+   button.setAttribute('aria-pressed',String((button.dataset.layoutSizeChoice==='compact')===compact));
+  }
+ }
+ function draw(now){
   frame=0;
   const next=root.querySelector('.cutting-layout');
-  if(next!==svg){svg=next;progress=0;}
+  if(next!==svg){svg=next;reset();if(svg)setSize();}
   if(!svg)return;
-  const clip=svg.querySelector('[data-roll-clip]');
-  const edge=svg.querySelector('[data-roll-edge]');
-  if(!clip||!edge)return;
   const layout=svg.getBoundingClientRect();
+  const replay=root.querySelector('[data-fabric-replay]');
+  if(replay)replay.hidden=!motionEnabled();
   if(!layout.height)return;
-  if(!motionEnabled()||print.matches){showFull();return;}
-  const viewportHeight=window.innerHeight;
+  const labelSize=Math.min(64,Math.max(22,11*svg.viewBox.baseVal.width/layout.width))+'px';
+  if(svg.style.getPropertyValue('--roll-label-size')!==labelSize)svg.style.setProperty('--roll-label-size',labelSize);
+  if(!motionEnabled()||print.matches){reset();paint(1);return;}
+  const stickyTop=document.querySelector('.appbar')?.getBoundingClientRect().bottom??0;
   const actions=document.querySelector('.step-actions')?.getBoundingClientRect().height??0;
-  const available=viewportHeight-actions;
-  const travel=Math.max(85,Math.min(165,layout.height*.62));
-  const shown=(available-layout.top-30)/travel;
-  const atEnd=window.scrollY+viewportHeight>=document.documentElement.scrollHeight-2;
-  // Keep a viewed layout open when the user scrolls back up.
-  progress=Math.max(progress,atEnd&&shown>0?1:Math.min(1,Math.max(0,shown)));
-  const top=Number(svg.dataset.rollTop),end=Number(svg.dataset.rollEnd);
-  const leaf=top+(end-top)*progress;
-  clip.setAttribute('height',progress===1?svg.viewBox.baseVal.height:leaf);
-  edge.setAttribute('transform',`translate(0 ${leaf})`);
-  edge.classList.toggle('is-rolling',progress>0&&progress<1);
+  const visible=Math.min(layout.bottom,window.innerHeight-actions)-Math.max(layout.top,stickyTop);
+  if(replayRequested){
+   replayRequested=false;
+   reset();
+  }
+  if(!played&&visible>=Math.min(90,layout.height*.45)){
+   played=true;
+   startTime=previousTime=now;
+   scrollStart=window.scrollY;
+   progress=0;
+  }
+  if(startTime===null)return;
+  const time=clamp((now-startTime)/duration);
+  const scroll=clamp((window.scrollY-scrollStart)/385);
+  const target=Math.max(time*time*(3-2*time),scroll);
+  // Scrolling can move the roll forward without skipping the reveal in one frame.
+  progress=Math.max(progress,Math.min(target,progress+Math.max(0,now-previousTime)*.00155));
+  previousTime=now;
+  if(time===1||progress>=.999){
+   startTime=null;
+   paint(1);
+   return;
+  }
+  paint(progress);
+  refresh();
  }
- function refresh(){if(!frame)frame=requestAnimationFrame(draw);}
+
+ root.addEventListener('click',event=>{
+  const size=event.target.closest('[data-layout-size-choice]');
+  if(size&&svg){
+   compact=size.dataset.layoutSizeChoice==='compact';
+   setSize();
+   refresh();
+  }
+  if(event.target.closest('[data-fabric-replay]')){
+   replayRequested=true;
+   refresh();
+  }
+ });
  window.addEventListener('scroll',refresh,{passive:true});
  window.addEventListener('resize',refresh);
- window.addEventListener('beforeprint',showFull);
+ window.addEventListener('beforeprint',()=>{reset();paint(1);});
  window.addEventListener('afterprint',refresh);
  reducedMotion.addEventListener?.('change',refresh);
  root.addEventListener('toggle',refresh,true);

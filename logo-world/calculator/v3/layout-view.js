@@ -36,5 +36,5 @@ export function layoutView(r,plan,d,unit='in',fractions=false){
    <stop class="fabric-roll-light"/><stop offset=".45" class="fabric-roll-face"/><stop offset="1" class="fabric-roll-shadow"/>
   </linearGradient>
  </defs><path class="layout-dimension" d="M ${pad} 23 H ${width-pad} M ${pad} 18 V 28 M ${width-pad} 18 V 28"/><text class="layout-width" x="${width/2}" y="14" text-anchor="middle">${fl(plan.usableWidth)} wide</text><g clip-path="url(#fabricUnrollClip)"><rect class="layout-cloth" x="${pad}" y="${top}" width="${width-pad*2}" height="${n(clothHeight)}"/>${panels}${extra}<path class="layout-row-divider" d="${dividers}"/><path class="layout-edges" d="M ${pad} ${top} V ${n(top+clothHeight)} M ${width-pad} ${top} V ${n(top+clothHeight)}"/></g>
- <g data-roll-edge class="fabric-roll-edge" aria-hidden="true"><rect x="${pad-1}" y="-6" width="${width-pad*2+2}" height="12" rx="6" fill="url(#fabricRollFinish)"/><path d="M ${pad+6} -3 H ${width-pad-6}"/></g></svg>`;
+ <g data-roll-edge class="fabric-roll-edge" aria-hidden="true"><rect x="${pad-1}" y="-10" width="${width-pad*2+2}" height="20" rx="10" fill="url(#fabricRollFinish)"/><path d="M ${pad+8} -5 H ${width-pad-8}"/></g></svg>`;
 }

@@ -887,14 +887,28 @@
     border: 1px solid var(--line);
   }
   .fabric-unroll-stage .cutting-layout {
-    --layout-max-height: min(36svh, 262px);
+    --layout-max-height: clamp(440px, 74svh, 740px);
     width: min(100%, calc(var(--layout-max-height) * var(--layout-ratio)));
     height: auto;
     max-height: var(--layout-max-height);
   }
+  .fabric-unroll-stage[data-layout-size=compact] .cutting-layout {
+    --layout-max-height: clamp(330px, 53svh, 490px);
+    width: min(78%, calc(var(--layout-max-height) * var(--layout-ratio)));
+  }
+  .fabric-unroll-stage .layout-panel-label,
+  .fabric-unroll-stage .layout-extra text { font-size: var(--roll-label-size, 24px); }
+  .fabric-view-tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 0 9px;
+  }
+  .fabric-view-tools .segmented button { padding-inline: 12px; }
   .layout-figure figcaption, .layout-caption { margin-top: 7px; }
   .fabric-roll-edge { display: none; pointer-events: none; }
-  .fabric-roll-edge.is-rolling { display: inline; }
+  .fabric-roll-edge.is-rolling { display: inline; filter: drop-shadow(0 4px 5px #0005); }
   .fabric-roll-edge path { fill: none; stroke: var(--paper); opacity: .45; }
   .fabric-roll-light { stop-color: var(--line); }
   .fabric-roll-face { stop-color: var(--muted); }
@@ -902,7 +916,8 @@
 }
 
 @media screen and (max-width: 600px) {
-  .fabric-unroll-stage .cutting-layout { --layout-max-height: min(33svh, 225px); }
+  .fabric-unroll-stage .cutting-layout { --layout-max-height: clamp(400px, 75svh, 620px); }
+  .fabric-unroll-stage[data-layout-size=compact] .cutting-layout { --layout-max-height: clamp(318px, 53svh, 425px); }
   .fabric-estimate .calc-facts dd small { font-size: 10px; }
 }
 
@@ -954,5 +969,6 @@
 
 @media (prefers-reduced-motion: reduce), print {
   .fabric-unroll-stage [clip-path="url(#fabricUnrollClip)"] { clip-path: none !important; }
-  .fabric-roll-edge { display: none !important; }
+  .fabric-roll-edge, [data-fabric-replay] { display: none !important; }
 }
+@media print { .fabric-view-tools { display: none !important; } }
