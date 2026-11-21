@@ -1,3 +1,4 @@
+import {createLegPlayground} from './leg-playground.js';
 import {waistConstructionGuide} from './waist-guide.js';
 import {patternView} from './pattern-view.js';
 import {layoutView} from './layout-view.js';
@@ -152,7 +153,7 @@ function render(){
   const rows=overviewRows();
   const selected=new Set(rows.map(row=>row.key));
   $('results').innerHTML=`<div class="pattern-workbench">
-   <div class="workbench-tools"><div class="pattern-legend"><span><i class="legend-stitch"></i>Stitch</span><span><i class="legend-cut"></i>Cut · seam allowance</span></div><button type="button" class="workbench-link" data-open-allowances>Seam allowances ↗</button></div>
+   <div class="workbench-tools"><div class="pattern-legend"><span><i class="legend-stitch"></i>Stitch</span><span><i class="legend-cut"></i>Cut · seam allowance</span></div><div class="workbench-actions"><button type="button" class="workbench-link" data-open-leg-playground>Play around</button><button type="button" class="workbench-link" data-open-allowances>Seam allowances ↗</button></div></div>
    <div class="pattern-stage"><figure id="overviewGraphic">${overviewGraphic(rows)}</figure>
    <aside class="measurement-focus"><details class="measurement-picker" ${measurementPickerOpen?'open':''}>
     <summary>Explore measurements <span id="measurementCount">${overviewCount(rows)}</span></summary>
@@ -242,6 +243,7 @@ $('results').addEventListener('click',event=>{
  const detail=event.target.closest('[data-measurement-detail]');
  if(detail){openMeasurementPopup(detail.dataset.measurementDetail);return;}
  if(event.target.closest('[data-waist-guide]')){$('waistGuideDialog').showModal();return;}
+ if(event.target.closest('[data-open-leg-playground]')){legPlayground.open();return;}
  if(event.target.closest('[data-open-allowances]')){$('allowancesDialog').showModal();return;}
  if(event.target.closest('[data-pattern-help]')){$('patternHelpDialog').showModal();return;}
  const row=event.target.closest('tr[data-pattern-key]');if(!row||!result.valid)return;
@@ -389,6 +391,36 @@ window.addEventListener('storage',event=>{
 $('loadLatest').addEventListener('click',()=>{otherTabChanged=false;state=initialState();inputErrors.clear();touched.clear();syncInputs();renderProfiles();render();$('syncNotice').hidden=true;$('saveState').textContent='';$('saveState').hidden=true;for(const id of ['saveProfile','newDraft','importBackup','loadExample','profileSelect','deleteProfile'])$(id).disabled=false;document.dispatchEvent(new CustomEvent('draft:loaded'));toast('Latest workspace loaded.');});
 $('exportThisTab').addEventListener('click',()=>$('exportBackup').click());
 window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist();});
+
+const legPlayground=createLegPlayground($('legPlayground'),{
+ read:()=>({
+  unit:state.unit,
+  minKnee:result.thighY??0,
+  knee:{width:(result.front.knee+result.back.knee)/2,height:result.kneeY},
+  hem:{width:(result.front.hem+result.back.hem)/2,height:result.leg}
+ }),
+ apply:(point,values)=>{
+  const patch={};
+  if(point==='knee'){
+   if(values.width!==undefined)patch.kneeWidth=values.width;
+   if(values.height!==undefined)patch.kneeDistance=values.height;
+  }else{
+   if(values.width!==undefined)patch.fitOpening=values.width;
+   if(values.height!==undefined)patch.length=state.draft.length+(values.height-result.leg);
+  }
+  const fields=Object.keys(patch);
+  if(fields.every(key=>Math.abs(getValue(key)-patch[key])<1e-9&&getValue(key)!==null))return true;
+  if(values.height!==undefined&&(point==='hem'?values.height<=result.kneeY:values.height>=result.leg))return false;
+  const candidate={...state.draft,...patch};
+  if(!computeDraft(candidate).valid)return false;
+  state.draft=candidate;
+  for(const key of fields){touched.add(key);$(domId(key)).value=formatNumber(getValue(key),state.unit);}
+  render();scheduleSave();
+  return true;
+ }
+});
+$('legPlayground').addEventListener('close',()=>$('results').querySelector('[data-open-leg-playground]')?.focus());
+
 syncInputs();renderProfiles();render();persist();
 if(state.profiles.some(p=>p.draft.depth===null&&p.draft.frontRise!==null))toast('Your old presets are here. Add a Rise measurement when you load one.');
 

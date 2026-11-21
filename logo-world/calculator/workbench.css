@@ -716,3 +716,25 @@
 .measurement-options input {
   flex: none;
 }
+
+.workbench-actions { display: flex; flex-wrap: wrap; gap: 0 16px; }
+.leg-playground { width: min(620px, calc(100% - 24px)); }
+.leg-axis-key { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.leg-chart { display: block; width: 100%; height: auto; background: var(--soft); border: 1px solid var(--line); touch-action: none; }
+.leg-chart text { font: 13px var(--font); fill: var(--muted); pointer-events: none; }
+.leg-chart path { fill: none; pointer-events: none; }
+.leg-grid { stroke: var(--line); stroke-width: .75; }
+.leg-axis { stroke: var(--muted); }
+.leg-guide { stroke: var(--muted); stroke-dasharray: 3 4; }
+.leg-profile { stroke: var(--ink); stroke-width: 2; }
+.leg-hit-point { fill: transparent; cursor: grab; }
+.leg-chart [data-leg-point]:active .leg-hit-point { cursor: grabbing; }
+.leg-handle { fill: var(--surface); stroke: var(--pattern-accent); stroke-width: 3; pointer-events: none; }
+.leg-chart .leg-point-name { fill: var(--ink); font-weight: 700; }
+.leg-point-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0; }
+.leg-point-fields fieldset { min-width: 0; margin: 0; padding: 8px; border: 1px solid var(--line); }
+.leg-point-fields legend { font-size: 14px; font-weight: 700; }
+.leg-point-fields label { display: block; font-size: 13px; }
+.leg-point-fields label + label { margin-top: 6px; }
+.leg-point-fields input[data-leg-input] { min-height: 42px; padding: 8px; font-size: 16px; }
+.leg-playground [data-leg-message]:empty { display: none; }
