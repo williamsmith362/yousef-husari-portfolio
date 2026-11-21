@@ -471,30 +471,6 @@
     color: var(--paper);
   }
 
-  .fraction-state {
-    display: inline-grid;
-    place-items: center;
-    min-width: 3ch;
-    padding: 1px 4px;
-    border: 1px solid currentColor;
-    font-size: .625rem;
-    font-weight: 750;
-    line-height: 1.4;
-    grid-template-areas: "state";
-  }
-
-  .fraction-state > span {
-    grid-area: state;
-    visibility: hidden;
-  }
-
-  .top-fractions:not(:has(input:checked)) .fraction-off,
-  .top-fractions:has(input:checked) .fraction-on,
-  [data-popup-fractions][aria-pressed=false] .fraction-off,
-  [data-popup-fractions][aria-pressed=true] .fraction-on {
-    visibility: visible;
-  }
-
   @media (max-width: 600px) {
     .focus-values {
       padding-bottom: 0;
