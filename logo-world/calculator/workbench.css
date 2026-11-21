@@ -726,7 +726,11 @@
 .leg-grid { stroke: var(--line); stroke-width: .75; }
 .leg-axis { stroke: var(--muted); }
 .leg-guide { stroke: var(--muted); stroke-dasharray: 3 4; }
-.leg-profile { stroke: var(--ink); stroke-width: 2; }
+.leg-chart .leg-panel-outline { fill: var(--front-panel, var(--surface)); stroke: var(--ink); stroke-width: 1.4; }
+.leg-chart [data-leg-panel=back] .leg-panel-outline { fill: var(--back-panel, var(--paper)); }
+.leg-chart .leg-cut-band { fill: color-mix(in srgb, var(--pattern-accent) 28%, transparent); }
+.leg-chart .leg-cut-line { stroke: var(--pattern-accent); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.leg-chart .leg-panel-title { font-weight: 700; fill: var(--ink); }
 .leg-hit-point { fill: transparent; cursor: grab; }
 .leg-chart [data-leg-point]:active .leg-hit-point { cursor: grabbing; }
 .leg-handle { fill: var(--surface); stroke: var(--pattern-accent); stroke-width: 3; pointer-events: none; }

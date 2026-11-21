@@ -395,6 +395,9 @@ window.addEventListener('pagehide',persist);document.addEventListener('visibilit
 const legPlayground=createLegPlayground($('legPlayground'),{
  read:()=>({
   unit:state.unit,
+  draft:result,
+  seams:state.draft.seams,
+  frontShare:state.draft.frontShare,
   minKnee:result.thighY??0,
   knee:{width:(result.front.knee+result.back.knee)/2,height:result.kneeY},
   hem:{width:(result.front.hem+result.back.hem)/2,height:result.leg}

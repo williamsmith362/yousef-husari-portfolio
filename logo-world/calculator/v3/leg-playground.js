@@ -1,9 +1,12 @@
 import {formatNumber,parseLength} from './model.js';
+import {panelBounds,panelOutline,allowanceOutline,patternMeasurement} from './pattern-view.js';
 
 const points=['knee','hem'];
 const axes=['width','height'];
-const origin={x:47,y:16};
-const size={x:451,y:244};
+const sides=['front','back'];
+const chartTop=32;
+const chartBottom=382;
+const panelSpace=188;
 const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
 
 export function createLegPlayground(dialog,{read,apply}){
@@ -13,41 +16,68 @@ export function createLegPlayground(dialog,{read,apply}){
  const unitLabel=dialog.querySelector('[data-leg-unit]');
  let limits,drag,frame=0,pending;
  const factor=unit=>unit==='cm'?2.54:1;
+ const direction=side=>side==='front'?1:-1;
+
+ function chartLayout(draft){
+  const bounds=sides.map(side=>panelBounds(draft[side]));
+  const outside=Math.max(limits?.outside??0,...bounds.map(panel=>-panel.min));
+  const inside=Math.max(limits?.inside??0,...bounds.map(panel=>panel.max*1.22));
+  const height=Math.max(limits?.height??0,draft.rise+draft.leg*1.14);
+  const scale=Math.min(panelSpace/(outside+inside),(chartBottom-chartTop)/height);
+  return {outside,inside,height,scale};
+ }
+
+ function drawPanels(values){
+  const {draft,seams}=values,{scale,outside,inside,height}=limits;
+  const y=value=>chartTop+value*scale;
+  const unitScale=factor(values.unit);
+  const inchStep=values.unit==='cm'?20/unitScale:6;
+  const tickCount=Math.min(12,Math.floor((height-draft.rise)/inchStep));
+  const panels=sides.map(side=>{
+   const sign=direction(side);
+   const origin=side==='front'?56+outside*scale:464-outside*scale;
+   const x=value=>origin+sign*value*scale;
+   const xy=(a,b)=>`${x(a)} ${y(b)}`;
+   const outline=panelOutline(draft,side,xy,true);
+   const cut=allowanceOutline(draft,side,seams,xy,true);
+   const grid=Array.from({length:tickCount+1},(_,i)=>{
+    const dy=y(draft.rise+i*inchStep);
+    return `<path class="leg-grid" d="M ${origin} ${dy} H ${x(inside)}"/>${side==='front'?`<text x="46" y="${dy+4}" text-anchor="end">${i*(values.unit==='cm'?20:6)}</text>`:''}`;
+   }).join('');
+   const handles=points.map(point=>{
+    const mark=patternMeasurement(draft,point,side);
+    const [width,level]=mark.end;
+    const px=x(width),py=y(level);
+    const label=point==='knee'?'Knee':'Hem';
+    return `<g data-leg-point="${point}" data-leg-side="${side}">
+     <path class="leg-guide" d="M ${origin} ${py} H ${px}"/>
+     <circle class="leg-hit-point" cx="${px}" cy="${py}" r="20"/>
+     <circle class="leg-handle" cx="${px}" cy="${py}" r="6"/>
+     <text class="leg-point-name" x="${px+sign*9}" y="${py-9}" text-anchor="${side==='front'?'end':'start'}">${label}</text>
+    </g>`;
+   }).join('');
+   return `<g class="leg-pattern" data-leg-panel="${side}">
+    <text class="leg-panel-title" x="${x(inside/2)}" y="17" text-anchor="middle">${side==='front'?'Front':'Back'}</text>
+    ${grid}<path class="leg-axis" d="M ${origin} ${y(height)} V ${y(draft.rise)} H ${x(inside)}"/>
+    <path class="leg-cut-band" fill-rule="evenodd" d="${cut} ${outline}"/>
+    <path class="leg-cut-line" d="${cut}"/>
+    <path class="leg-panel-outline" d="${outline}"/>
+    ${handles}
+   </g>`;
+  });
+  chart.innerHTML=`<title>Front and back pattern panels with draggable knee and hem points</title>${panels.join('')}`;
+ }
 
  function redraw(){
   const values=read();
-  const scale=factor(values.unit);
-  if(!drag){
-   const xMax=Math.max(values.knee.width,values.hem.width)*scale;
-   const yMax=values.hem.height*scale;
-   limits={x:Math.max(limits?.x??0,Math.ceil(xMax*1.25/2)*2),y:Math.max(limits?.y??0,Math.ceil(yMax*1.16/5)*5)};
-  }
+  if(!drag)limits=chartLayout(values.draft);
   unitLabel.textContent=values.unit;
   for(const point of points)for(const axis of axes){
    const input=fields[point+'-'+axis];
    input.value=formatNumber(values[point][axis],values.unit);
    input.removeAttribute('aria-invalid');
   }
-  const xPos=value=>origin.x+value*scale/limits.x*size.x;
-  const yPos=value=>origin.y+value*scale/limits.y*size.y;
-  const grid=[];
-  for(let n=0;n<=5;n++){
-   const x=origin.x+n*size.x/5,y=origin.y+n*size.y/5;
-   grid.push(`<path class="leg-grid" d="M ${x} ${origin.y} v ${size.y} M ${origin.x} ${y} h ${size.x}"/>
-   <text x="${x}" y="282" text-anchor="middle">${Number((n*limits.x/5).toFixed(1))}</text>
-   <text x="37" y="${y+4}" text-anchor="end">${Number((n*limits.y/5).toFixed(1))}</text>`);
-  }
-  const k=values.knee,h=values.hem,kx=xPos(k.width),ky=yPos(k.height),hx=xPos(h.width),hy=yPos(h.height);
-  const handle=(name,x,y)=>`<g data-leg-point="${name.toLowerCase()}">
-   <path class="leg-guide" d="M ${origin.x} ${y} H ${x} V ${origin.y+size.y}"/>
-   <circle class="leg-hit-point" cx="${x}" cy="${y}" r="22"/>
-   <circle class="leg-handle" cx="${x}" cy="${y}" r="7"/>
-   <text class="leg-point-name" x="${x-12}" y="${y-10}" text-anchor="end">${name}</text>
-  </g>`;
-  chart.innerHTML=`<title>Knee and hem on a width and height grid</title>${grid.join('')}
-   <path class="leg-axis" d="M ${origin.x} ${origin.y} v ${size.y} h ${size.x}"/>
-   <path class="leg-profile" d="M ${kx} ${ky} L ${hx} ${hy}"/>
-   ${handle('Knee',kx,ky)}${handle('Hem',hx,hy)}`;
+  drawPanels(values);
  }
 
  function position(event){
@@ -63,11 +93,11 @@ export function createLegPlayground(dialog,{read,apply}){
   const values=read(),unitScale=factor(values.unit);
   const step=values.unit==='cm'?0.1/unitScale:1/16;
   const snap=value=>Math.round(value/step)*step;
-  const offsetX=(p.x-drag.origin.x)*limits.x/size.x/unitScale;
-  const offsetY=(p.y-drag.origin.y)*limits.y/size.y/unitScale;
+  const offsetX=(p.x-drag.origin.x)*direction(drag.side)/(limits.scale*drag.share);
+  const offsetY=(p.y-drag.origin.y)/limits.scale;
   const minY=drag.point==='knee'?values.minKnee+step:values.knee.height+step;
-  const maxY=drag.point==='knee'?values.hem.height-step:limits.y/unitScale;
-  const width=clamp(snap(drag.start.width+offsetX),step,limits.x/unitScale);
+  const maxY=drag.point==='knee'?values.hem.height-step:limits.height-values.draft.rise;
+  const width=clamp(snap(drag.start.width+offsetX),step,limits.inside/Math.max(values.frontShare,1-values.frontShare));
   const height=minY<=maxY?clamp(snap(drag.start.height+offsetY),minY,maxY):values[drag.point].height;
   const patch={};
   if(Math.abs(offsetX)>=step/2)patch.width=width;
@@ -88,8 +118,10 @@ export function createLegPlayground(dialog,{read,apply}){
   if(!target||drag||event.button!==0)return;
   const originPoint=position(event);
   if(!originPoint)return;
-  const point=target.dataset.legPoint;
-  drag={point,id:event.pointerId,origin:originPoint,start:read()[point]};
+  const point=target.dataset.legPoint,side=target.dataset.legSide;
+  const values=read();
+  const share=side==='front'?values.frontShare:1-values.frontShare;
+  drag={point,side,share,id:event.pointerId,origin:originPoint,start:values[point]};
   event.preventDefault();
   chart.setPointerCapture(event.pointerId);
  });
