@@ -11,6 +11,7 @@ export const DEFAULT_DRAFT = {
 const LENGTH_KEYS = ['waist','waistEase','seat','seatEase','band','depth','depthDrop','length','opening','frontRise','hipDepth','kneeDistance','kneeWidth','calfWidth','waistBalance','forkDeduction','fabricWidth','extraLength'];
 const OPTIONAL = new Set(['waist','seat','depth','length','opening','frontRise','hipDepth','kneeDistance','kneeWidth','calfWidth','fabricWidth']);
 export const clone = value => JSON.parse(JSON.stringify(value));
+export const waistPoint=(side,inside)=>({x:inside-(side==='front'?.5:.75),y:side==='front'?.5:-.375});
 
 export function normalizeDraft(input={}) {
   const d=clone(DEFAULT_DRAFT);
@@ -105,6 +106,11 @@ export function computeDraft(input) {
   if(d.kneeDistance===null || d.kneeWidth===null) notices.push('Knee position or width uses a starting proportion. Check it on your draft.');
   if(d.frontRise!==null) notices.push(`Front crotch seam target: ${d.frontRise} in. Check along the drawn stitching curve; it does not set vertical depth.`);
   if(d.seams.frontOut===0 || d.seams.backOut===0) notices.push('An outseam allowance is zero. Confirm where the stitching sits relative to the selvedge.');
+  const waistEdge=(side,panel)=>{
+    const inside=panel.seat-panel.offset;
+    const point=waistPoint(side,inside);
+    return Math.hypot(point.x-(inside-panel.waist),point.y);
+  };
   const rows=[
     {key:'panelLength',label:'Panel outseam height',f:panelLength,b:panelLength},
     {key:'rise',label:'Crotch level below band',f:rise,b:rise},
@@ -112,7 +118,7 @@ export function computeDraft(input) {
     {key:'seat',label:'Seat width',f:front.seat,b:back.seat},
     {key:'riseH',label:'Width to crotch point',f:front.riseH,b:back.riseH},
     {key:'offset',label:'Seat offset reference',f:null,b:back.offset},
-    {key:'waist',label:'Waist',f:front.waist,b:back.waist},
+    {key:'waist',label:'Waist edge',f:waistEdge('front',front),b:waistEdge('back',back)},
     {key:'section1',label:'Crotch → knee / point 1',f:kneeY,b:kneeY},
     {key:'knee',label:'Point 1 width',f:front.knee,b:back.knee},
     {key:'section2',label:'Point 1 → point 2',f:section2,b:section2},
