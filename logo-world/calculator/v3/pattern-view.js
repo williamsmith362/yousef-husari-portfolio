@@ -1,11 +1,11 @@
 import {formatLength,waistPoint} from './model.js';
 
-export const panelBounds=v=>{const inside=v.seat-v.offset;return {inside,outside:inside-v.waist,min:Math.min(0,inside-v.waist),max:Math.max(inside,v.seat,v.riseH,v.thigh??0,v.knee,v.calf,v.hem)};};
+export const panelBounds=v=>{const inside=v.seat-v.offset;return {inside,outside:inside-v.waist,min:Math.min(0,inside-v.waist),max:Math.max(inside,v.seat,v.riseH,v.thigh??0,v.knee,v.hem)};};
 export {waistPoint} from './model.js';
 export function panelOutline(r,side,xy,shapeWaist=false){
  const v=r[side],bounds=panelBounds(v);
-  const ys=[r.rise,r.rise+r.kneeY,r.rise+r.kneeY+r.section2,r.panelLength];
-  const xs=[v.riseH,v.knee,v.calf,v.hem];
+  const ys=[r.rise,r.rise+r.kneeY,r.panelLength];
+  const xs=[v.riseH,v.knee,v.hem];
   if(r.thighY!==null){ys.splice(1,0,r.rise+r.thighY);xs.splice(1,0,v.thigh);}
   const segments=ys.length-1;
   const ds=ys.slice(1).map((y,i)=>(xs[i+1]-xs[i])/(y-ys[i]));
@@ -39,7 +39,7 @@ export function allowanceOutline(r,side,seams,xy,shapeWaist=false){
  const raw=panelOutline(r,side,(x,y)=>`${x} ${y}`,shapeWaist);
  const commands=raw.match(/[MLCZ][^MLCZ]*/g), points=[], widths=[];
  const front=side==='front',riseCurves=front?1:2;
- const inseamCurves=r.thighY===null?3:4;
+ const inseamCurves=r.thighY===null?2:3;
  let current,cubic=0;
  const add=(p,w)=>{if(current){widths.push(w);}points.push(p);current=p;};
  for(const command of commands){
@@ -77,7 +77,7 @@ export function patternMeasurement(r,key,side){
  const row=r.rows.find(row=>row.key===key),v=r[side],bounds=panelBounds(v);
  const value=row?.[side==='front'?'f':'b'];
  if(value===null||value===undefined)return null;
- const knee=r.rise+r.kneeY,calf=knee+r.section2,x=bounds.min-1.4;
+ const knee=r.rise+r.kneeY,x=bounds.min-1.4;
  const positions={
   panelLength:[[x,0],[x,r.panelLength]],
   rise:[[x,0],[x,r.rise]],
@@ -89,9 +89,7 @@ export function patternMeasurement(r,key,side){
   waist:[[bounds.outside,0],[waistPoint(side,bounds.inside).x,waistPoint(side,bounds.inside).y]],
   section1:[[x,r.rise],[x,knee]],
   knee:[[0,knee],[v.knee,knee]],
-  section2:[[x,knee],[x,calf]],
-  calf:[[0,calf],[v.calf,calf]],
-  section3:[[x,calf],[x,r.panelLength]],
+  kneeToHem:[[x,knee],[x,r.panelLength]],
   hem:[[0,r.panelLength],[v.hem,r.panelLength]]
  };
  const points=positions[key];
@@ -120,10 +118,10 @@ export function patternView(r,{key=null,unit='in',fractions=false,detail=false,s
   const origin=side==='front'?pad-bounds.min*s:width-pad+bounds.min*s;
   const point=([x,y])=>[origin+direction*x*s,top+y*s];
   const xy=(x,y)=>point([x,y]).map(n).join(' ');
-  const knee=r.rise+r.kneeY,calf=knee+r.section2;
+  const knee=r.rise+r.kneeY;
   const d=panelOutline(r,side,xy,true);
   const allowance=seams?allowanceOutline(r,side,seams,xy,true):'';
-  const levels=[[r.seatY,v.seat],[r.rise,v.riseH],...(r.thighY===null?[]:[[r.rise+r.thighY,v.thigh]]),[knee,v.knee],[calf,v.calf]].map(([y,x])=>`M ${xy(0,y)} L ${xy(x,y)}`).join(' ');
+  const levels=[[r.seatY,v.seat],[r.rise,v.riseH],...(r.thighY===null?[]:[[r.rise+r.thighY,v.thigh]]),[knee,v.knee]].map(([y,x])=>`M ${xy(0,y)} L ${xy(x,y)}`).join(' ');
   const centerReference=side==='back'?` M ${xy(waistPoint(side,bounds.inside).x,waistPoint(side,bounds.inside).y)} L ${xy(bounds.inside,r.seatY)}`:'';
   const reference=`M ${xy(0,0)} L ${xy(0,r.panelLength)}${centerReference}`;
   const gx=v.hem/2,gy1=r.rise+r.leg*.1,gy2=r.panelLength-r.leg*.1;

@@ -86,7 +86,7 @@ export function computeDraft(input) {
   if(rise<=0) errors.depth='Crotch level must be below the bottom of the waistband.';
   if(leg<=0) errors.length='Hem must be below crotch level. Check Total length and Rise.';
   if(seatY<=0 || seatY>=rise) errors.seatRatio='Seat level must fall between the waistband attachment and crotch line.';
-  if(kneeY<=0 || kneeY>=leg) errors.kneeDistance='Knee point must fall between crotch level and the hem.';
+  if(kneeY<=0 || kneeY>=leg) errors.kneeDistance='The knee must sit between crotch level and the hem.';
   if(frontWaist<=0 || backWaist<=0) errors.waistBalance='Waist balance leaves a panel with no waist width.';
   if(Q<=0) errors.forkDeduction='Crotch-extension deduction is too large for the seat target.';
   if(Object.keys(errors).length) return {valid:false,errors,notices};
@@ -95,11 +95,11 @@ export function computeDraft(input) {
   const thighCirc=d.thighWidth===null?null:2*d.thighWidth;
   const kneeCirc=(d.kneeWidth===null?d.opening+0.5:d.kneeWidth)*2;
   const hemCirc=d.opening*2;
-  const section2=(leg-kneeY)/2;
-  const front={waist:frontWaist, seat:H/4, riseH:H/4+Q/2, offset:0, thigh:thighCirc===null?null:thighCirc*d.frontShare, knee:kneeCirc*d.frontShare,calf:hemCirc*d.frontShare,hem:hemCirc*d.frontShare};
-  const back={waist:backWaist, seat:H/4, riseH:H/4+Q, offset:Q/4, thigh:thighCirc===null?null:thighCirc*(1-d.frontShare), knee:kneeCirc*(1-d.frontShare),calf:hemCirc*(1-d.frontShare),hem:hemCirc*(1-d.frontShare)};
+  const kneeToHem=leg-kneeY;
+  const front={waist:frontWaist, seat:H/4, riseH:H/4+Q/2, offset:0, thigh:thighCirc===null?null:thighCirc*d.frontShare, knee:kneeCirc*d.frontShare,hem:hemCirc*d.frontShare};
+  const back={waist:backWaist, seat:H/4, riseH:H/4+Q, offset:Q/4, thigh:thighCirc===null?null:thighCirc*(1-d.frontShare), knee:kneeCirc*(1-d.frontShare),hem:hemCirc*(1-d.frontShare)};
   const insideFront=Math.max(d.seams.inseam,d.seams.frontStraight,d.seams.frontCurve);
-  const span=v=>Math.max(v.seat-v.offset,v.seat,v.riseH,v.thigh??0,v.knee,v.calf,v.hem)-Math.min(0,v.seat-v.offset-v.waist);
+  const span=v=>Math.max(v.seat-v.offset,v.seat,v.riseH,v.thigh??0,v.knee,v.hem)-Math.min(0,v.seat-v.offset-v.waist);
   front.cutWidth=span(front)+insideFront+d.seams.frontOut;
   back.cutWidth=span(back)+d.seams.inseam+d.seams.backOut;
   const cutLength=panelLength+d.seams.waist+d.seams.hem;
@@ -123,13 +123,11 @@ export function computeDraft(input) {
     {key:'offset',label:'Seat offset',f:null,b:back.offset},
     ...(thighY===null?[]:[{key:'thigh',label:'Thigh width',f:front.thigh,b:back.thigh}]),
     {key:'section1',label:'Rise to knee height',f:kneeY,b:kneeY},
-    {key:'knee',label:'Point 1 width',f:front.knee,b:back.knee},
-    {key:'section2',label:'Point 1 → point 2',f:section2,b:section2},
-    {key:'calf',label:'Point 2 width',f:front.calf,b:back.calf},
-    {key:'section3',label:'Point 2 → hem',f:section2,b:section2},
+    {key:'knee',label:'Knee width',f:front.knee,b:back.knee},
+    {key:'kneeToHem',label:'Knee to hem height',f:kneeToHem,b:kneeToHem},
     {key:'hem',label:'Hem width',f:front.hem,b:back.hem}
   ];
-  return {valid:true,errors,notices,W,H,total,panelLength,overallDepth,rise,leg,seatY,thighY,kneeY,section2,cutLength,front,back,rows};
+  return {valid:true,errors,notices,W,H,total,panelLength,overallDepth,rise,leg,seatY,thighY,kneeY,cutLength,front,back,rows};
 }
 
 // Whole panels on lengthwise grain. Selvedge requires an outer edge per panel;
