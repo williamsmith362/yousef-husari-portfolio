@@ -1,4 +1,5 @@
 import {createLegPlayground} from './leg-playground.js';
+import {animateMeasurementChange,captureMeasurements,revealPattern} from './motion-lab.js';
 import {waistConstructionGuide} from './waist-guide.js';
 import {escapeHTML,patternView} from './pattern-view.js';
 import {layoutView} from './layout-view.js';
@@ -202,8 +203,8 @@ function renderMeasurementPopup(){
  $('measurementDialogExplanation').textContent=measurementNote(popupKey)+' '+estimateNote(popupKey);
  $('measurementZoom').textContent=popupFull?'Show detail':'Show full pattern';$('measurementZoom').setAttribute('aria-pressed',String(popupFull));
 }
-function openMeasurementPopup(key){if(!result.valid||key==='all')return;popupKey=key;popupFull=false;renderMeasurementPopup();$('measurementDialog').showModal();$('measurementDialog').scrollTop=0;}
-$('measurementZoom').addEventListener('click',()=>{popupFull=!popupFull;renderMeasurementPopup();});
+function openMeasurementPopup(key){if(!result.valid||key==='all')return;popupKey=key;popupFull=false;renderMeasurementPopup();$('measurementDialog').showModal();$('measurementDialog').scrollTop=0;revealPattern($('measurementDialogGraphic'));}
+$('measurementZoom').addEventListener('click',()=>{popupFull=!popupFull;renderMeasurementPopup();revealPattern($('measurementDialogGraphic'));});
 document.querySelector('[data-popup-fractions]').addEventListener('click',()=>$('fractionToggle').click());
 function estimateNote(key){return key==='seatY'?'Seat position uses a starting proportion.':(['knee','section1'].includes(key)&&(state.draft.kneeWidth===null||state.draft.kneeDistance===null))?'Knee uses starting proportions; check on your sample.':'';}
 function updateOverview(){
@@ -213,7 +214,10 @@ function updateOverview(){
   checkbox.checked=selected.has(checkbox.value);
  }
  $('measurementCount').textContent=overviewCount(rows);
- $('overviewGraphic').innerHTML=overviewGraphic(rows);
+ const figure=$('overviewGraphic');
+ const previous=captureMeasurements(figure);
+ figure.innerHTML=overviewGraphic(rows);
+ animateMeasurementChange(figure,previous);
  $('measurementFocus').innerHTML=measurementFocus(rows);
 }
 $('results').addEventListener('change',event=>{

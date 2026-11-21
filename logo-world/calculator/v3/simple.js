@@ -1,5 +1,6 @@
 import './app.js';
 import {openMeasurementHelp} from './measurement-help.js';
+import {confirmField,enterStep,revealEstimate,revealFabricLayout,revealPattern} from './motion-lab.js';
 const $=id=>document.getElementById(id);
 const cards=[$('measure'),null,$('draft'),$('cloth')];
 const fit=document.createElement('section');fit.id='adjust';fit.className='card';fit.innerHTML='<div class="section-heading"><h2>Fine-tune your fit</h2></div><p class="adjust-intro">Open only the options you want to change.</p>';
@@ -18,12 +19,12 @@ const drafts=document.querySelector('.draft-bar');drafts.hidden=true;
 document.querySelector('.drafts-toggle').addEventListener('click',e=>{drafts.hidden=!drafts.hidden;e.currentTarget.setAttribute('aria-expanded',String(!drafts.hidden));$('moreMenu').open=false;});
 let step=0;
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
-const motionTiming={duration:250,easing:'cubic-bezier(.2, .7, .3, 1)'};
-let headingMotion;
+
 function show(n,scroll=true){
  const nextStep=Math.max(0,Math.min(3,n));
- const changed=nextStep!==step;
+ const direction=Math.sign(nextStep-step);
  step=nextStep;
+ nav.style.setProperty('--motion-step',String(step));
  cards.forEach((card,i)=>{card.hidden=i!==step;});
  [...nav.children].forEach((button,i)=>{
   if(i===step)button.setAttribute('aria-current','step');
@@ -37,9 +38,9 @@ function show(n,scroll=true){
  $('stepCount').textContent=`${step+1} of 4`;
  $('stepBack').disabled=step===0;
  $('stepNext').innerHTML=`${nextLabels[step]} <span aria-hidden="true">${step===3?'↵':'→'}</span>`;
- if(changed&&!reducedMotion.matches){
-  headingMotion?.cancel();
-  headingMotion=heading.parentElement.animate([{opacity:.72,translate:'0 3px'},{opacity:1,translate:'0 0'}],motionTiming);
+ if(direction){
+  enterStep(heading.parentElement,cards[step],direction);
+  if(step===2)revealPattern($('overviewGraphic'));
  }
  if(scroll){
   heading.focus({preventScroll:true});
@@ -47,6 +48,14 @@ function show(n,scroll=true){
  }
 }
 document.addEventListener('draft:loaded',()=>show(0));
+document.addEventListener('change',event=>{
+ const input=event.target.closest('input[data-field]:not([type=hidden])');
+ if(input)confirmField(input);
+});
+$('fabricResult').addEventListener('click',event=>{
+ const summary=event.target.closest('.layout-details > summary');
+ if(summary&&!summary.parentElement.open)requestAnimationFrame(()=>revealFabricLayout($('fabricResult')));
+});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-recover]');if(!b)return;show(+b.dataset.recover);const field=[...document.querySelectorAll('input[data-field]')].find(input=>input.dataset.field===b.dataset.errorField);if(field){const dialog=field.closest('dialog');if(dialog&&!dialog.open)dialog.showModal();field.closest('details')?.setAttribute('open','');field.focus();}});
 nav.addEventListener('click',e=>{const b=e.target.closest('[data-step]');if(b)show(+b.dataset.step);});
 $('stepBack').addEventListener('click',()=>show(step-1));
@@ -56,7 +65,7 @@ $('stepNext').addEventListener('click',()=>{
   const invalid=$('cloth').querySelector('input[aria-invalid="true"]:not(:disabled)');
   if(invalid){invalid.closest('details')?.setAttribute('open','');invalid.focus();return;}
   const estimate=$('fabricResult');
-  if(!reducedMotion.matches)estimate.animate([{opacity:.72},{opacity:1}],motionTiming);
+  revealEstimate(estimate);
   estimate.scrollIntoView({block:'start',behavior:reducedMotion.matches?'instant':'smooth'});
   return;
  }

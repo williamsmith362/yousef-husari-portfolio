@@ -758,3 +758,98 @@
  .pivot-fields { grid-template-columns: 1fr 1fr; }
  .pivot-fields label:first-child { grid-column: 1 / -1; }
 }
+
+/* Motion lab: the active step, drafting trace and editing context. */
+@media screen {
+  .steps { position: relative; }
+  .steps::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    inset: auto auto -1px 0;
+    inline-size: 25%;
+    block-size: 3px;
+    background: var(--pattern-accent);
+    transform: translateX(calc(var(--motion-step, 0) * 100%));
+  }
+  .motion-trace {
+    pointer-events: none;
+    fill: none;
+    stroke: var(--pattern-accent);
+    stroke-width: 1.65;
+    stroke-linecap: round;
+    stroke-dasharray: 1 1;
+    stroke-dashoffset: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  .motion-mark-exit,
+  .motion-mark-exit * {
+    pointer-events: none !important;
+  }
+  .leg-chart .leg-motion-ghost {
+    fill: none;
+    opacity: .56;
+    stroke: var(--pattern-accent);
+    stroke-width: 1.2;
+    stroke-dasharray: 3 4;
+  }
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  .steps::after {
+    transition: transform 350ms cubic-bezier(.2,.76,.23,1);
+  }
+  .step-panel:not([hidden]),
+  #overviewGraphic > svg,
+  #measurementDialogGraphic > svg {
+    animation: none;
+  }
+  .steps button[aria-current=step] .step-dot {
+    animation: step-index-in 300ms cubic-bezier(.2,.76,.23,1);
+  }
+  .measurement-picker > summary::after {
+    content: '+';
+    width: 1em;
+    text-align: center;
+    transition: rotate 220ms cubic-bezier(.2,.76,.23,1);
+  }
+  .measurement-picker[open] > summary::after {
+    content: '+';
+    rotate: 45deg;
+  }
+  .measurement-options label {
+    transition: background-color 160ms ease-out;
+  }
+  .measurement-options label:has(input:checked) input {
+    animation: check-in 180ms cubic-bezier(.2,.76,.23,1);
+  }
+  .workbench-tools .workbench-link:hover,
+  .step-actions .button:not(:disabled):hover {
+    translate: 0 -1px;
+  }
+  .workbench-tools .workbench-link,
+  .step-actions .button {
+    transition: translate 160ms ease, background-color 150ms ease, opacity 150ms ease;
+  }
+  .theme-toggle svg {
+    animation: theme-icon-in 270ms cubic-bezier(.2,.76,.23,1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce), print {
+  .motion-trace, .motion-mark-exit, .leg-motion-ghost { display: none !important; }
+}
+
+@keyframes step-index-in {
+  from { opacity: .4; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes check-in {
+  0% { scale: .92; }
+  55% { scale: 1.13; }
+  100% { scale: 1; }
+}
+@keyframes theme-icon-in {
+  from { opacity: .45; rotate: -16deg; scale: .86; }
+  to { opacity: 1; rotate: 0deg; scale: 1; }
+}

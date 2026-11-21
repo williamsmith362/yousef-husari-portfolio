@@ -1,6 +1,8 @@
 import {formatNumber,parseLength} from './model.js';
 import {escapeHTML,patternBounds,panelOutline,allowanceOutline,patternMeasurement} from './pattern-view.js';
 
+import {motionEnabled,releaseLegGhosts} from './motion-lab.js';
+
 const points=['knee','hem'];
 const axes=['width','height'];
 const sides=['front','back'];
@@ -69,6 +71,7 @@ export function createLegPlayground(dialog,{read,apply,add,remove}){
     <path class="leg-cut-band" fill-rule="evenodd" d="${cut} ${outline}"/>
     <path class="leg-cut-line" d="${cut}"/>
     <path class="leg-panel-outline" d="${outline}"/>
+    ${drag?.ghosts?.[side]?`<path class="leg-motion-ghost" d="${drag.ghosts[side]}"/>`:''}
     ${handles}
    </g>`;
   });
@@ -146,10 +149,12 @@ export function createLegPlayground(dialog,{read,apply,add,remove}){
   const share=side==='front'?values.frontShare:1-values.frontShare;
   const start=values[point]??values.pivots.find(pivot=>pivot.id===point);
   if(!start)return;
-  drag={point,side,share,id:event.pointerId,origin:originPoint,start};
-  if(!points.includes(point)){selectedPivot=point;redraw();}
+  const ghosts=motionEnabled()?Object.fromEntries(sides.map(side=>[side,chart.querySelector(`[data-leg-panel="${side}"] .leg-panel-outline`)?.getAttribute('d')])):null;
+  drag={point,side,share,id:event.pointerId,origin:originPoint,start,ghosts};
+  if(!points.includes(point))selectedPivot=point;
   event.preventDefault();
   chart.setPointerCapture(event.pointerId);
+  if(ghosts||!points.includes(point))redraw();
  });
  chart.addEventListener('pointermove',event=>{
   if(!drag||drag.id!==event.pointerId)return;
@@ -161,6 +166,7 @@ export function createLegPlayground(dialog,{read,apply,add,remove}){
   if(frame)cancelAnimationFrame(frame);
   if(event.type==='pointerup')move();
   drag=null;frame=0;pending=null;
+  releaseLegGhosts(chart);
  }
  for(const event of ['pointerup','pointercancel','lostpointercapture'])chart.addEventListener(event,finish);
 
