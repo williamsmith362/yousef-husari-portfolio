@@ -606,6 +606,11 @@
   pointer-events: stroke;
 }
 
+#overviewGraphic .dimension-hit-line-front-height {
+  stroke-width: 12;
+  vector-effect: none;
+}
+
 #overviewGraphic .dimension-hit-label {
   fill: transparent;
   pointer-events: fill;

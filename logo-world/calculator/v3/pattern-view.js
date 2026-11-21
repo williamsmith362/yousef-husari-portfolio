@@ -105,6 +105,9 @@ export function patternView(r,{key=null,keys=null,unit='in',fractions=false,deta
  const f=panelBounds(r.front),b=panelBounds(r.back);
  const s=Math.min(14,(width-2*pad-gap)/(f.max-f.min+b.max-b.min),560/r.panelLength);
  const height=top+r.panelLength*s+56,n=v=>Number(v.toFixed(3));
+ const frontSeatOffset=Math.max(1.8*s,16);
+ const frontRiseOffset=Math.max(3.1*s,frontSeatOffset+18);
+ const frontHeightOffsets={seatY:frontSeatOffset,rise:frontRiseOffset,panelLength:Math.max(4.4*s,frontRiseOffset+16)};
  const selected=visibleRows.length===1?visibleRows[0]:null;
  const all=visibleRows.length===r.rows.length;
  const title=all?'All measurements on the front and back panels':selected?selected.label+' on the front and back panels':visibleRows.length?'Selected measurements on the front and back panels':'Front and back drafting reference for your current measurements';
@@ -135,8 +138,12 @@ export function patternView(r,{key=null,keys=null,unit='in',fractions=false,deta
   for(const {key,label} of visibleRows){
   const m=patternMeasurement(r,key,side);
   if(m){
-   if(wide&&m.vertical){const lane={panelLength:3,rise:1.7,seatY:.4}[key]??.4;m.start[0]-=lane;m.end[0]-=lane;}
+   const spacedFrontHeight=wide&&side==='front'&&m.vertical&&Object.hasOwn(frontHeightOffsets,key);
+   if(wide&&m.vertical&&!spacedFrontHeight){const lane={panelLength:3,rise:1.7,seatY:.4}[key]??.4;m.start[0]-=lane;m.end[0]-=lane;}
    let [a,c]=[point(m.start),point(m.end)];
+   if(spacedFrontHeight){
+    a[0]=c[0]=pad-frontHeightOffsets[key];
+   }
    const lift=['waist','offset'].includes(key)?-12:key==='hem'?12:0;
    const extension=m.vertical?`M ${xy(m.start[1]===0?bounds.outside:0,m.start[1])} L ${a.map(n).join(' ')} M ${xy(0,m.end[1])} L ${c.map(n).join(' ')}`:lift?`M ${a.map(n).join(' ')} v ${lift} M ${c.map(n).join(' ')} v ${lift}`:'';
    a=[a[0],a[1]+lift];c=[c[0],c[1]+lift];
@@ -146,7 +153,7 @@ export function patternView(r,{key=null,keys=null,unit='in',fractions=false,deta
    const line=`M ${a.map(n).join(' ')} L ${c.map(n).join(' ')}`;
    const rotation=m.vertical?` transform="rotate(-90 ${n(tx)} ${n(ty)})"`:'';
    const labelWidth=Math.max(32,value.length*8+10);
-   const target=interactive?`<path class="dimension-hit-line" d="${line}"/><rect class="dimension-hit-label" x="${n(tx-labelWidth/2)}" y="${n(ty-16)}" width="${labelWidth}" height="23"${rotation}/>`:'';
+   const target=interactive?`<path class="dimension-hit-line${spacedFrontHeight?' dimension-hit-line-front-height':''}" d="${line}"/><rect class="dimension-hit-label" x="${n(tx-labelWidth/2)}" y="${n(ty-16)}" width="${labelWidth}" height="23"${rotation}/>`:'';
    const control=interactive?` role="button" tabindex="0" aria-label="${side==='front'?'Front':'Back'} ${label}, ${value}"`:'';
    dimension+=`<g class="pattern-dimension" data-side="${side}" data-measurement="${key}" data-value="${m.value}"${control}><path class="dimension-extension" d="${extension}"/><path class="dimension-line" d="${line}" marker-start="url(#${id}Arrow)" marker-end="url(#${id}Arrow)"/><circle cx="${n(a[0])}" cy="${n(a[1])}" r="2.5"/><circle cx="${n(c[0])}" cy="${n(c[1])}" r="2.5"/>${target}<text class="dimension-value" x="${n(tx)}" y="${n(ty)}" text-anchor="middle"${rotation}>${value}</text></g>`;
   }
