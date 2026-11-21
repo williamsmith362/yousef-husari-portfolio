@@ -51,7 +51,7 @@ const fieldDefinitions={
   ['waistEase','Body waist ease','Added only when waist source is Body.'],['seatEase','Body seat ease','Added only when seat source is Body.'],
   ['frontRise','Curved front rise','Optional target along the front stitching seam, from the top of the band. Use the Rise field on Measure for the straight distance.'],
   ['depthDrop','Extra crotch depth','Added to Rise. Keep this at 0 when using the finished pants measurement.'],
-  ['thighWidth','Thigh width','Measure one leg laid flat, 1″ (2.54 cm) below the crotch. Leave blank to keep the default curve.'],
+  ['thighWidth','Thigh width','Measure one leg laid flat, 2″ (5.08 cm) below the crotch. Leave blank to keep the default curve.'],
   ['kneeDistance','Rise to knee height','Measure vertically from crotch level to the knee. Blank uses 40% of the leg.'],
   ['kneeWidth','Knee width','Measure one knee laid flat. Blank uses hem width + ½″.']
  ],
@@ -165,7 +165,7 @@ const patternNotes={
  seat:'Across each panel at the seat line, before the crotch extension.',
  riseH:'Across from the outseam reference to the crotch point, including the extension.',
  offset:'Back only. The horizontal construction offset from the waist-center reference to the seat reference.',
- thigh:'Width across each panel 1″ (2.54 cm) below crotch level.',
+ thigh:'Width across each panel 2″ (5.08 cm) below crotch level.',
  section1:'Straight down from crotch level to the knee.',
  knee:'Across each panel at the knee.',
  kneeToHem:'Straight down from knee level to the finished hem.',

@@ -90,7 +90,7 @@ export function computeDraft(input) {
   if(frontWaist<=0 || backWaist<=0) errors.waistBalance='Waist balance leaves a panel with no waist width.';
   if(Q<=0) errors.forkDeduction='Crotch-extension deduction is too large for the seat target.';
   if(Object.keys(errors).length) return {valid:false,errors,notices};
-  const thighY=d.thighWidth===null?null:1;
+  const thighY=d.thighWidth===null?null:2;
   if(thighY!==null&&kneeY<=thighY)return {valid:false,errors:{thighWidth:'The knee must sit below the thigh line.'},notices};
   const thighCirc=d.thighWidth===null?null:2*d.thighWidth;
   const kneeCirc=(d.kneeWidth===null?d.opening+0.5:d.kneeWidth)*2;

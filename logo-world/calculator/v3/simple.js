@@ -85,7 +85,7 @@ const quickHelp={
  waistEase:'Added only to a body waist measurement.',
  seatEase:'Added only to a body seat measurement.',
  frontRise:'Optional. Measure along the curved front seam.',
- thighWidth:'Optional. Measure one leg flat, 1″ (2.54 cm) below the crotch.',
+ thighWidth:'Optional. Measure one leg flat, 2″ (5.08 cm) below the crotch.',
  depthDrop:'Extra room below crotch level. Start with 0.',
  kneeDistance:'Optional. Straight down from crotch to knee.',
  kneeWidth:'Optional. Width across one knee, laid flat.',
