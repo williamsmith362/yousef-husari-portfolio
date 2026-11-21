@@ -1,12 +1,17 @@
 import {formatLength,waistPoint} from './model.js';
 
-export const panelBounds=v=>{const inside=v.seat-v.offset;return {inside,outside:inside-v.waist,min:Math.min(0,inside-v.waist),max:Math.max(inside,v.seat,v.riseH,v.thigh??0,v.knee,v.hem)};};
+export const escapeHTML=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export const panelBounds=(v,pivotWidths=[])=>{const inside=v.seat-v.offset;return {inside,outside:inside-v.waist,min:Math.min(0,inside-v.waist),max:Math.max(inside,v.seat,v.riseH,v.thigh??0,v.knee,v.hem,...pivotWidths)};};
 export {waistPoint} from './model.js';
+export const pivotWidth=(pivot,side)=>side==='front'?pivot.f:pivot.b;
+export const patternBounds=(draft,side)=>panelBounds(draft[side],draft.pivots.map(pivot=>pivotWidth(pivot,side)));
 export function panelOutline(r,side,xy,shapeWaist=false){
- const v=r[side],bounds=panelBounds(v);
-  const ys=[r.rise,r.rise+r.kneeY,r.panelLength];
-  const xs=[v.riseH,v.knee,v.hem];
-  if(r.thighY!==null){ys.splice(1,0,r.rise+r.thighY);xs.splice(1,0,v.thigh);}
+ const v=r[side],bounds=patternBounds(r,side);
+  const stations=[[0,v.riseH],[r.kneeY,v.knee],[r.leg,v.hem],...r.pivots.map(pivot=>[pivot.height,pivotWidth(pivot,side)])];
+  if(r.thighY!==null)stations.push([r.thighY,v.thigh]);
+  stations.sort((a,b)=>a[0]-b[0]);
+  const ys=stations.map(([height])=>height===r.leg?r.panelLength:r.rise+height);
+  const xs=stations.map(([,width])=>width);
   const segments=ys.length-1;
   const ds=ys.slice(1).map((y,i)=>(xs[i+1]-xs[i])/(y-ys[i]));
   const m=[ds[0],...Array(segments-1).fill(0),ds.at(-1)];
@@ -39,7 +44,7 @@ export function allowanceOutline(r,side,seams,xy,shapeWaist=false){
  const raw=panelOutline(r,side,(x,y)=>`${x} ${y}`,shapeWaist);
  const commands=raw.match(/[MLCZ][^MLCZ]*/g), points=[], widths=[];
  const front=side==='front',riseCurves=front?1:2;
- const inseamCurves=r.thighY===null?2:3;
+ const inseamCurves=(r.thighY===null?2:3)+r.pivots.length;
  let current,cubic=0;
  const add=(p,w)=>{if(current){widths.push(w);}points.push(p);current=p;};
  for(const command of commands){
@@ -74,7 +79,7 @@ export function allowanceOutline(r,side,seams,xy,shapeWaist=false){
 // Heights are vertical distances; waist and seat offset are construction targets.
 export function patternMeasurement(r,key,side){
  if(!r?.valid||!['front','back'].includes(side))return null;
- const row=r.rows.find(row=>row.key===key),v=r[side],bounds=panelBounds(v);
+ const row=r.rows.find(row=>row.key===key),v=r[side],bounds=patternBounds(r,side);
  const value=row?.[side==='front'?'f':'b'];
  if(value===null||value===undefined)return null;
  const knee=r.rise+r.kneeY,x=bounds.min-1.4;
@@ -92,7 +97,8 @@ export function patternMeasurement(r,key,side){
   kneeToHem:[[x,knee],[x,r.panelLength]],
   hem:[[0,r.panelLength],[v.hem,r.panelLength]]
  };
- const points=positions[key];
+ const pivot=r.pivots.find(candidate=>candidate.id===key);
+ const points=pivot?[[0,r.rise+pivot.height],[pivotWidth(pivot,side),r.rise+pivot.height]]:positions[key];
  return points?{start:points[0],end:points[1],value,vertical:points[0][0]===points[1][0]}:null;
 }
 
@@ -102,7 +108,7 @@ export function patternView(r,{key=null,keys=null,unit='in',fractions=false,deta
  const visibleRows=keys!==null?r.rows.filter(row=>keys.includes(row.key)):r.rows.filter(row=>key==='all'||row.key===key);
  const wide=keys!==null||key==='all';
  const width=wide?640:500,pad=wide?88:52,gap=64,top=64;
- const f=panelBounds(r.front),b=panelBounds(r.back);
+ const f=patternBounds(r,'front'),b=patternBounds(r,'back');
  const s=Math.min(14,(width-2*pad-gap)/(f.max-f.min+b.max-b.min),560/r.panelLength);
  const height=top+r.panelLength*s+56,n=v=>Number(v.toFixed(3));
  const frontSeatOffset=Math.max(1.8*s,16);
@@ -128,7 +134,7 @@ export function patternView(r,{key=null,keys=null,unit='in',fractions=false,deta
   const knee=r.rise+r.kneeY;
   const d=panelOutline(r,side,xy,true);
   const allowance=seams?allowanceOutline(r,side,seams,xy,true):'';
-  const levels=[[r.seatY,v.seat],[r.rise,v.riseH],...(r.thighY===null?[]:[[r.rise+r.thighY,v.thigh]]),[knee,v.knee]].map(([y,x])=>`M ${xy(0,y)} L ${xy(x,y)}`).join(' ');
+  const levels=[[r.seatY,v.seat],[r.rise,v.riseH],...(r.thighY===null?[]:[[r.rise+r.thighY,v.thigh]]),[knee,v.knee],...r.pivots.map(pivot=>[r.rise+pivot.height,pivotWidth(pivot,side)])].map(([y,x])=>`M ${xy(0,y)} L ${xy(x,y)}`).join(' ');
   const centerReference=side==='back'?` M ${xy(waistPoint(side,bounds.inside).x,waistPoint(side,bounds.inside).y)} L ${xy(bounds.inside,r.seatY)}`:'';
   const reference=`M ${xy(0,0)} L ${xy(0,r.panelLength)}${centerReference}`;
   const gx=v.hem/2,gy1=r.rise+r.leg*.1,gy2=r.panelLength-r.leg*.1;
@@ -154,11 +160,11 @@ export function patternView(r,{key=null,keys=null,unit='in',fractions=false,deta
    const rotation=m.vertical?` transform="rotate(-90 ${n(tx)} ${n(ty)})"`:'';
    const labelWidth=Math.max(32,value.length*8+10);
    const target=interactive?`<path class="dimension-hit-line${spacedFrontHeight?' dimension-hit-line-front-height':''}" d="${line}"/><rect class="dimension-hit-label" x="${n(tx-labelWidth/2)}" y="${n(ty-16)}" width="${labelWidth}" height="23"${rotation}/>`:'';
-   const control=interactive?` role="button" tabindex="0" aria-label="${side==='front'?'Front':'Back'} ${label}, ${value}"`:'';
+   const control=interactive?` role="button" tabindex="0" aria-label="${side==='front'?'Front':'Back'} ${escapeHTML(label)}, ${value}"`:'';
    dimension+=`<g class="pattern-dimension" data-side="${side}" data-measurement="${key}" data-value="${m.value}"${control}><path class="dimension-extension" d="${extension}"/><path class="dimension-line" d="${line}" marker-start="url(#${id}Arrow)" marker-end="url(#${id}Arrow)"/><circle cx="${n(a[0])}" cy="${n(a[1])}" r="2.5"/><circle cx="${n(c[0])}" cy="${n(c[1])}" r="2.5"/>${target}<text class="dimension-value" x="${n(tx)}" y="${n(ty)}" text-anchor="middle"${rotation}>${value}</text></g>`;
   }
   }
   return `<g class="pattern-panel" data-pattern-side="${side}"><g clip-path="url(#${id}Clip)"><path class="level" d="${levels} ${reference}"/>${allowance?`<path class="allowance-fill" fill-rule="evenodd" d="${allowance} ${d}"/><path class="cutting-line" d="${allowance}"/>`:''}<path class="outline" d="${d}"/><path class="grain" d="${arrow}"/></g><text class="panel-title" x="${n(lx)}" y="${n(viewTop+17)}" text-anchor="middle">${side.toUpperCase()}</text>${dimension}</g>`;
  }
- return `<svg class="current-pattern${selected?' has-measurement':''}" viewBox="0 ${n(viewTop)} ${width} ${n(viewBottom-viewTop)}" data-scale="${s}" role="${interactive&&visibleRows.length?'group':'img'}" aria-labelledby="${id}Title" aria-describedby="${id}Description"><title id="${id}Title">${title}</title><desc id="${id}Description">Both panels use the same scale. ${selected?'Highlighted arrows show '+selected.label.toLowerCase()+'. ':''}${interactive&&visibleRows.length?'Choose a dimension for its detail view. ':''}Straight dimensions match your results. Curved seams are shaping references; cutting allowances are separate.</desc><defs><marker id="${id}Arrow" viewBox="0 0 6 6" markerWidth="5" markerHeight="5" refX="3" refY="3" orient="auto-start-reverse"><path d="M6 3 0 0 0 6Z" fill="var(--pattern-accent)"/></marker><clipPath id="${id}Clip"><rect x="0" y="${n(viewTop+28)}" width="${width}" height="${n(viewBottom-viewTop-28)}"/></clipPath></defs>${panel(r.front,f,'front')}${panel(r.back,b,'back')}</svg>`;
+ return `<svg class="current-pattern${selected?' has-measurement':''}" viewBox="0 ${n(viewTop)} ${width} ${n(viewBottom-viewTop)}" data-scale="${s}" role="${interactive&&visibleRows.length?'group':'img'}" aria-labelledby="${id}Title" aria-describedby="${id}Description"><title id="${id}Title">${escapeHTML(title)}</title><desc id="${id}Description">Both panels use the same scale. ${selected?'Highlighted arrows show '+escapeHTML(selected.label.toLowerCase())+'. ':''}${interactive&&visibleRows.length?'Choose a dimension for its detail view. ':''}Straight dimensions match your results. Curved seams are shaping references; cutting allowances are separate.</desc><defs><marker id="${id}Arrow" viewBox="0 0 6 6" markerWidth="5" markerHeight="5" refX="3" refY="3" orient="auto-start-reverse"><path d="M6 3 0 0 0 6Z" fill="var(--pattern-accent)"/></marker><clipPath id="${id}Clip"><rect x="0" y="${n(viewTop+28)}" width="${width}" height="${n(viewBottom-viewTop-28)}"/></clipPath></defs>${panel(r.front,f,'front')}${panel(r.back,b,'back')}</svg>`;
 }

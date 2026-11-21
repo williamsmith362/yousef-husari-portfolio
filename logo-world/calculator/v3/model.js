@@ -3,7 +3,7 @@ export const DEFAULT_DRAFT = {
   waist:null, waistSource:'garment', waistFlat:false, waistEase:0.5,
   seat:null, seatSource:'garment', seatFlat:false, seatEase:2,
   band:1.5, depth:null, depthDrop:0, length:null, lengthOrigin:'top', opening:null, fitOpening:null,
-  frontRise:null, thighWidth:null, kneeDistance:null, kneeWidth:null,
+  frontRise:null, thighWidth:null, kneeDistance:null, kneeWidth:null, legPivots:[],
   frontShare:0.45, waistBalance:0.5, seatRatio:0.75, forkDeduction:0.5,
   fabricType:'selvedge', fabricWidth:null, extraLength:12, shrinkLength:0, shrinkWidth:0, notes:'',
   seams:{inseam:0.625, frontOut:0.5, backOut:0.5, waist:0.5, frontStraight:0.25, frontCurve:0.5, hem:1}
@@ -28,6 +28,14 @@ export function normalizeDraft(input={}) {
   if(d.waistSource==='body')d.waistFlat=false;
   if(d.seatSource==='body')d.seatFlat=false;
   if(typeof input.notes==='string') d.notes=input.notes.slice(0,20000);
+  const pivotIds=new Set();
+  if(Array.isArray(input.legPivots))for(const pivot of input.legPivots){
+    if(!pivot||typeof pivot.id!=='string'||!/^pivot-[a-z0-9-]{1,70}$/i.test(pivot.id)||pivotIds.has(pivot.id))continue;
+    if(!Number.isFinite(pivot.height)||pivot.height<=0||!Number.isFinite(pivot.width)||pivot.width<=0)continue;
+    const name=typeof pivot.name==='string'?pivot.name.trim().slice(0,40):'';
+    d.legPivots.push({id:pivot.id,name:name||'Pivot point',width:pivot.width,height:pivot.height});
+    pivotIds.add(pivot.id);
+  }
   if(input.seams && typeof input.seams==='object') for(const k of Object.keys(d.seams)) {
     if(typeof input.seams[k]==='number' && Number.isFinite(input.seams[k])) d.seams[k]=input.seams[k];
   }
@@ -97,12 +105,21 @@ export function computeDraft(input) {
   const kneeCirc=(d.kneeWidth??(hemWidth+0.5))*2;
   const hemCirc=hemWidth*2;
   const kneeToHem=leg-kneeY;
+  const levels=thighY===null?[kneeY]:[thighY,kneeY];
+  const pivots=[];
+  for(const pivot of d.legPivots){
+    if(pivot.height>=leg||levels.some(height=>Math.abs(height-pivot.height)<1e-6))continue;
+    levels.push(pivot.height);
+    pivots.push({...pivot,f:2*pivot.width*d.frontShare,b:2*pivot.width*(1-d.frontShare)});
+  }
+  pivots.sort((a,b)=>a.height-b.height);
+  const pivotRows=pivots.map(pivot=>({key:pivot.id,label:pivot.name,f:pivot.f,b:pivot.b,height:pivot.height}));
   const front={waist:frontWaist, seat:H/4, riseH:H/4+Q/2, offset:0, thigh:thighCirc===null?null:thighCirc*d.frontShare, knee:kneeCirc*d.frontShare,hem:hemCirc*d.frontShare};
   const back={waist:backWaist, seat:H/4, riseH:H/4+Q, offset:Q/4, thigh:thighCirc===null?null:thighCirc*(1-d.frontShare), knee:kneeCirc*(1-d.frontShare),hem:hemCirc*(1-d.frontShare)};
   const insideFront=Math.max(d.seams.inseam,d.seams.frontStraight,d.seams.frontCurve);
-  const span=v=>Math.max(v.seat-v.offset,v.seat,v.riseH,v.thigh??0,v.knee,v.hem)-Math.min(0,v.seat-v.offset-v.waist);
-  front.cutWidth=span(front)+insideFront+d.seams.frontOut;
-  back.cutWidth=span(back)+d.seams.inseam+d.seams.backOut;
+  const span=(v,side)=>Math.max(v.seat-v.offset,v.seat,v.riseH,v.thigh??0,v.knee,v.hem,...pivots.map(pivot=>pivot[side]))-Math.min(0,v.seat-v.offset-v.waist);
+  front.cutWidth=span(front,'f')+insideFront+d.seams.frontOut;
+  back.cutWidth=span(back,'b')+d.seams.inseam+d.seams.backOut;
   const cutLength=panelLength+d.seams.waist+d.seams.hem;
   if(![cutLength,...Object.values(front),...Object.values(back)].every(value=>value===null||Number.isFinite(value)))return {valid:false,errors:{length:'Measurements are too large to calculate.'},notices};
   notices.push('Seat height uses the selected proportion of Rise height.');
@@ -123,12 +140,14 @@ export function computeDraft(input) {
     {key:'seat',label:'Seat width',f:front.seat,b:back.seat},
     {key:'offset',label:'Seat offset',f:null,b:back.offset},
     ...(thighY===null?[]:[{key:'thigh',label:'Thigh width',f:front.thigh,b:back.thigh}]),
+    ...pivotRows.filter(row=>row.height<kneeY),
     {key:'section1',label:'Rise to knee height',f:kneeY,b:kneeY},
     {key:'knee',label:'Knee width',f:front.knee,b:back.knee},
+    ...pivotRows.filter(row=>row.height>kneeY),
     {key:'kneeToHem',label:'Knee to hem height',f:kneeToHem,b:kneeToHem},
     {key:'hem',label:'Hem width',f:front.hem,b:back.hem}
   ];
-  return {valid:true,errors,notices,W,H,total,panelLength,overallDepth,rise,leg,seatY,thighY,kneeY,cutLength,front,back,rows};
+  return {valid:true,errors,notices,W,H,total,panelLength,overallDepth,rise,leg,seatY,thighY,kneeY,pivots,cutLength,front,back,rows};
 }
 
 // Whole panels on lengthwise grain. Selvedge requires an outer edge per panel;

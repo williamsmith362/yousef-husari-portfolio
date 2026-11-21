@@ -1,4 +1,4 @@
-import {panelBounds,panelOutline} from './pattern-view.js';
+import {patternBounds,panelOutline} from './pattern-view.js';
 import {formatLength} from './model.js';
 
 // An unfolded, single-layer layout. All shapes keep the drafting preview's curves
@@ -12,7 +12,7 @@ export function layoutView(r,plan,d,unit='in',fractions=false){
  plan.rows.forEach((row,rowIndex)=>{
   let cursor=0;
   row.forEach((piece,index)=>{
-   const v=r[piece.panel],b=panelBounds(v);
+   const v=r[piece.panel],b=patternBounds(r,piece.panel);
    const mirror=plan.fabricType==='selvedge'?index===1:piece.copy===2;
    const x=plan.fabricType==='selvedge'&&index===1?plan.usableWidth-piece.width:cursor;
    const y=rowIndex*r.cutLength,out=d.seams[piece.panel==='front'?'frontOut':'backOut'];

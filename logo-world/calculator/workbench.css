@@ -742,3 +742,16 @@
 .leg-point-fields label + label { margin-top: 6px; }
 .leg-point-fields input[data-leg-input] { min-height: 42px; padding: 8px; font-size: 16px; }
 .leg-playground [data-leg-message]:empty { display: none; }
+
+.pivot-notice { padding: 10px 16px; margin: 0; font-size: 13px; border-bottom: 1px solid var(--line); color: var(--error); }
+.pivot-controls { border-top: 1px solid var(--line); padding-top: 12px; margin: 16px 0; }
+.pivot-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.pivot-actions h3 { margin: 0; font-size: 15px; }
+.pivot-fields { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+.pivot-controls label { min-width: 0; font-size: 13px; display: block; }
+.pivot-controls input, .pivot-controls select { min-width: 0; }
+.leg-point-selected .leg-handle { fill: var(--pattern-accent); }
+@media (max-width: 420px) {
+ .pivot-fields { grid-template-columns: 1fr 1fr; }
+ .pivot-fields label:first-child { grid-column: 1 / -1; }
+}

@@ -1,13 +1,12 @@
 import {createLegPlayground} from './leg-playground.js';
 import {waistConstructionGuide} from './waist-guide.js';
-import {patternView} from './pattern-view.js';
+import {escapeHTML,patternView} from './pattern-view.js';
 import {layoutView} from './layout-view.js';
 import {DEFAULT_DRAFT,clone,normalizeDraft,parseLength,formatNumber,formatLength,computeDraft,planFabric,migrateLegacyPreset,compareDrafts} from './model.js';
 
 const $=id=>document.getElementById(id);
 const KEY='sp_workspace_v2';
 const FABRIC_KEYS=new Set(['fabricWidth','extraLength','shrinkLength','shrinkWidth']);
-const escapeHTML=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid=()=>globalThis.crypto?.randomUUID?.()||`draft-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const inputErrors=new Map(),touched=new Set(),fieldKinds=new Map();
 let saveTimer,toastTimer,storageAvailable=true,result;
@@ -153,16 +152,17 @@ function render(){
   const rows=overviewRows();
   const selected=new Set(rows.map(row=>row.key));
   $('results').innerHTML=`<div class="pattern-workbench">
+   ${result.pivots.length<state.draft.legPivots.length?`<p class="pivot-notice">Some pivot points need a different height. Open Play around to adjust them.</p>`:''}
    <div class="workbench-tools"><div class="pattern-legend"><span><i class="legend-stitch"></i>Stitch</span><span><i class="legend-cut"></i>Cut · seam allowance</span></div><div class="workbench-actions"><button type="button" class="workbench-link" data-open-leg-playground>Play around</button><button type="button" class="workbench-link" data-open-allowances>Seam allowances ↗</button></div></div>
    <div class="pattern-stage"><figure id="overviewGraphic">${overviewGraphic(rows)}</figure>
    <aside class="measurement-focus"><details class="measurement-picker" ${measurementPickerOpen?'open':''}>
     <summary>Explore measurements <span id="measurementCount">${overviewCount(rows)}</span></summary>
     <div class="measurement-picker-actions"><button type="button" data-select-measurements="all">Select all</button><button type="button" data-select-measurements="none">Clear</button></div>
     <fieldset class="measurement-options"><legend class="sr-only">Measurements to show on the pattern</legend>
-     ${result.rows.map(row=>`<label><input type="checkbox" data-overview-measurement value="${row.key}" ${selected.has(row.key)?'checked':''}><span>${row.label}</span></label>`).join('')}
+     ${result.rows.map(row=>`<label><input type="checkbox" data-overview-measurement value="${row.key}" ${selected.has(row.key)?'checked':''}><span>${escapeHTML(row.label)}</span></label>`).join('')}
     </fieldset></details><div id="measurementFocus">${measurementFocus(rows)}</div></aside></div>
    <div class="workbench-bottom"><span>Shape and check curves before cutting.</span><button class="workbench-link" type="button" data-pattern-help>Help with this pattern ↗</button></div>
-  </div><details class="all-measurements" ${allMeasurementsOpen?'open':''}><summary>All measurements <span>Full drafting table</span></summary><table class="measure-table interactive-results"><caption>Stitching-line dimensions · allowances shown separately on the diagram</caption><thead><tr><th>Measurement</th><th>Front</th><th>Back</th></tr></thead><tbody>${result.rows.map(r=>`<tr data-pattern-key="${r.key}"><td><button class="result-measure-button" type="button" data-pattern-key="${r.key}">${r.label}<span>↗</span></button></td><td>${fl(r.f)}</td><td>${fl(r.b)}</td></tr>`).join('')}</tbody></table></details>`;
+  </div><details class="all-measurements" ${allMeasurementsOpen?'open':''}><summary>All measurements <span>Full drafting table</span></summary><table class="measure-table interactive-results"><caption>Stitching-line dimensions · allowances shown separately on the diagram</caption><thead><tr><th>Measurement</th><th>Front</th><th>Back</th></tr></thead><tbody>${result.rows.map(r=>`<tr data-pattern-key="${r.key}"><td><button class="result-measure-button" type="button" data-pattern-key="${r.key}">${escapeHTML(r.label)}<span>↗</span></button></td><td>${fl(r.f)}</td><td>${fl(r.b)}</td></tr>`).join('')}</tbody></table></details>`;
   $('results').querySelector('.measurement-picker').addEventListener('toggle',e=>{measurementPickerOpen=e.target.open;});
   $('results').querySelector('.all-measurements').addEventListener('toggle',e=>{allMeasurementsOpen=e.target.open;});
 
@@ -189,6 +189,8 @@ const patternNotes={
  hem:'Across the finished hem of each panel. Cutting allowances are separate.'
 };
 function measurementNote(key){
+ const pivot=result.pivots.find(candidate=>candidate.id===key);
+ if(pivot)return `Located ${fl(pivot.height)} below the crotch. One leg laid flat is ${fl(pivot.width)} wide here.`;
  if(key!=='waist')return patternNotes[key];
  return `Front: ${fl(.5)} inward and ${fl(.5)} down. Back: ${fl(.75)} inward and ${fl(.375)} up. Stitching lengths follow the drawn edges. Starting waist allocations: front ${fl(result.front.waist)}, back ${fl(result.back.waist)}.`;
 }
@@ -259,7 +261,7 @@ function renderComparison(){
  const other=computeDraft(p.draft);
  if(!result.valid||!other.valid){$('comparison').innerHTML='<p class="compare-note">Both drafts need valid measurements. Imported old presets need a Rise measurement before comparison.</p>';return;}
  const delta=x=>x===null?'—':`${Math.abs(x)<0.00001?'':x>0?'+':'−'}${fl(Math.abs(x))}`;
- $('comparison').innerHTML=`<p class="compare-note">Current minus ${escapeHTML(p.name)}. Updates as you measure.</p><table class="measure-table compare-table"><thead><tr><th scope="col">Difference</th><th scope="col">Front Δ</th><th scope="col">Back Δ</th></tr></thead><tbody>${compareDrafts(result,other).map(r=>`<tr><td>${r.label}</td><td class="${r.df>0?'positive':r.df<0?'negative':''}">${delta(r.df)}</td><td class="${r.db>0?'positive':r.db<0?'negative':''}">${delta(r.db)}</td></tr>`).join('')}</tbody></table>`;
+ $('comparison').innerHTML=`<p class="compare-note">Current minus ${escapeHTML(p.name)}. Updates as you measure.</p><table class="measure-table compare-table"><thead><tr><th scope="col">Difference</th><th scope="col">Front Δ</th><th scope="col">Back Δ</th></tr></thead><tbody>${compareDrafts(result,other).map(r=>`<tr><td>${escapeHTML(r.label)}</td><td class="${r.df>0?'positive':r.df<0?'negative':''}">${delta(r.df)}</td><td class="${r.db>0?'positive':r.db<0?'negative':''}">${delta(r.db)}</td></tr>`).join('')}</tbody></table>`;
 }
 function fabricStatus(){
  const plan=planFabric(result,state.draft);
@@ -376,7 +378,7 @@ $('importFile').addEventListener('change',async e=>{
 });
 $('copyDraft').addEventListener('click',async()=>{
  if(!result.valid)return;
- const d=state.draft,lines=['SELVEDGE — '+(state.profiles.find(p=>p.id===state.activeId)?.name||'Current draft'),'Stitching-line dimensions; add cutting allowances.',`Waist ${fl(result.W)} · Seat ${fl(result.H)} · Finished length ${fl(result.total)}`,`Front / back leg split: ${d.frontShare*100}% / ${100-d.frontShare*100}%`,'',...result.rows.map(r=>`${r.label}: front ${fl(r.f)} | back ${fl(r.b)}`),'','CUTTING ALLOWANCES',...Object.entries(d.seams).map(([k,v])=>`${k}: ${fl(v)}`),d.frontRise!==null?`Curved front-rise target: ${fl(d.frontRise)}`:'',d.notes?`\nNOTES\n${d.notes}`:''];
+ const d=state.draft,lines=['SELVEDGE — '+(state.profiles.find(p=>p.id===state.activeId)?.name||'Current draft'),'Stitching-line dimensions; add cutting allowances.',`Waist ${fl(result.W)} · Seat ${fl(result.H)} · Finished length ${fl(result.total)}`,`Front / back leg split: ${d.frontShare*100}% / ${100-d.frontShare*100}%`,'',...result.rows.map(r=>`${r.label}: front ${fl(r.f)} | back ${fl(r.b)}${r.height===undefined?'':` | ${fl(r.height)} below the crotch`}`),'','CUTTING ALLOWANCES',...Object.entries(d.seams).map(([k,v])=>`${k}: ${fl(v)}`),d.frontRise!==null?`Curved front-rise target: ${fl(d.frontRise)}`:'',d.notes?`\nNOTES\n${d.notes}`:''];
  try{await navigator.clipboard.writeText(lines.join('\n'));toast('Front, back and allowances copied.');}catch{toast('Clipboard unavailable. Use Print draft or Export backup.');}
 });
 $('printDraft').addEventListener('click',()=>{$('moreMenu').open=false;window.print();});
@@ -392,6 +394,23 @@ $('loadLatest').addEventListener('click',()=>{otherTabChanged=false;state=initia
 $('exportThisTab').addEventListener('click',()=>$('exportBackup').click());
 window.addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')persist();});
 
+function setPlayDraft(patch,pivotId=null){
+ const candidate=normalizeDraft({...state.draft,...patch});
+ const next=computeDraft(candidate);
+ if(!next.valid)return false;
+ const activeIds=new Set(next.pivots.map(pivot=>pivot.id));
+ if(pivotId&&!activeIds.has(pivotId))return false;
+ if((pivotId||!patch.legPivots)&&result.pivots.some(old=>!activeIds.has(old.id)))return false;
+ state.draft=candidate;
+ for(const key of Object.keys(patch)){
+  if(!fieldKinds.has(key))continue;
+  touched.add(key);
+  $(domId(key)).value=formatNumber(getValue(key),state.unit);
+ }
+ render();scheduleSave();
+ return true;
+}
+
 const legPlayground=createLegPlayground($('legPlayground'),{
  read:()=>({
   unit:state.unit,
@@ -400,9 +419,38 @@ const legPlayground=createLegPlayground($('legPlayground'),{
   frontShare:state.draft.frontShare,
   minKnee:result.thighY??0,
   knee:{width:(result.front.knee+result.back.knee)/2,height:result.kneeY},
-  hem:{width:(result.front.hem+result.back.hem)/2,height:result.leg}
+  hem:{width:(result.front.hem+result.back.hem)/2,height:result.leg},
+  pivots:state.draft.legPivots
  }),
+ add:()=>{
+  const {front,back,kneeY,leg,thighY,pivots}=result;
+  const stations=[
+   {height:0,width:(front.riseH+back.riseH)/2},
+   {height:kneeY,width:(front.knee+back.knee)/2},
+   {height:leg,width:(front.hem+back.hem)/2},...pivots
+  ];
+  if(thighY!==null)stations.push({height:thighY,width:(front.thigh+back.thigh)/2});
+  stations.sort((a,b)=>a.height-b.height);
+  let gap=0,index=0;
+  for(let i=1;i<stations.length;i++){
+   const distance=stations[i].height-stations[i-1].height;
+   if(distance>gap){gap=distance;index=i;}
+  }
+  if(gap<=2e-6)return null;
+  const [lower,upper]=[stations[index-1],stations[index]];
+  const usedNames=new Set(state.draft.legPivots.map(pivot=>pivot.name));
+  let n=1;
+  while(usedNames.has('Pivot '+n))n++;
+  const pivot={id:'pivot-'+uid(),name:'Pivot '+n,width:(lower.width+upper.width)/2,height:(lower.height+upper.height)/2};
+  return setPlayDraft({legPivots:[...state.draft.legPivots,pivot]},pivot.id)?pivot.id:null;
+ },
+ remove:id=>setPlayDraft({legPivots:state.draft.legPivots.filter(pivot=>pivot.id!==id)}),
  apply:(point,values)=>{
+  if(point!=='knee'&&point!=='hem'){
+   if(!state.draft.legPivots.some(pivot=>pivot.id===point))return false;
+   const legPivots=state.draft.legPivots.map(pivot=>pivot.id===point?{...pivot,...values}:pivot);
+   return setPlayDraft({legPivots},values.height===undefined?null:point);
+  }
   const patch={};
   if(point==='knee'){
    if(values.width!==undefined)patch.kneeWidth=values.width;
@@ -411,15 +459,9 @@ const legPlayground=createLegPlayground($('legPlayground'),{
    if(values.width!==undefined)patch.fitOpening=values.width;
    if(values.height!==undefined)patch.length=state.draft.length+(values.height-result.leg);
   }
-  const fields=Object.keys(patch);
-  if(fields.every(key=>Math.abs(getValue(key)-patch[key])<1e-9&&getValue(key)!==null))return true;
+  if(Object.keys(patch).every(key=>getValue(key)!==null&&Math.abs(getValue(key)-patch[key])<1e-9))return true;
   if(values.height!==undefined&&(point==='hem'?values.height<=result.kneeY:values.height>=result.leg))return false;
-  const candidate={...state.draft,...patch};
-  if(!computeDraft(candidate).valid)return false;
-  state.draft=candidate;
-  for(const key of fields){touched.add(key);$(domId(key)).value=formatNumber(getValue(key),state.unit);}
-  render();scheduleSave();
-  return true;
+  return setPlayDraft(patch);
  }
 });
 $('legPlayground').addEventListener('close',()=>$('results').querySelector('[data-open-leg-playground]')?.focus());

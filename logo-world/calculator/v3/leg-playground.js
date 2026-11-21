@@ -1,5 +1,5 @@
 import {formatNumber,parseLength} from './model.js';
-import {panelBounds,panelOutline,allowanceOutline,patternMeasurement} from './pattern-view.js';
+import {escapeHTML,patternBounds,panelOutline,allowanceOutline,patternMeasurement} from './pattern-view.js';
 
 const points=['knee','hem'];
 const axes=['width','height'];
@@ -9,17 +9,23 @@ const chartBottom=382;
 const panelSpace=188;
 const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
 
-export function createLegPlayground(dialog,{read,apply}){
+export function createLegPlayground(dialog,{read,apply,add,remove}){
  const chart=dialog.querySelector('svg');
  const fields=Object.fromEntries([...dialog.querySelectorAll('[data-leg-input]')].map(input=>[input.dataset.legInput,input]));
  const message=dialog.querySelector('[data-leg-message]');
  const unitLabel=dialog.querySelector('[data-leg-unit]');
+ const pivotSelect=dialog.querySelector('[data-pivot-select]');
+ const pivotEditor=dialog.querySelector('[data-pivot-editor]');
+ const pivotName=dialog.querySelector('[data-pivot-name]');
+ const pivotWidth=dialog.querySelector('[data-pivot-width]');
+ const pivotHeight=dialog.querySelector('[data-pivot-height]');
+ let selectedPivot=null;
  let limits,drag,frame=0,pending;
  const factor=unit=>unit==='cm'?2.54:1;
  const direction=side=>side==='front'?1:-1;
 
  function chartLayout(draft){
-  const bounds=sides.map(side=>panelBounds(draft[side]));
+  const bounds=sides.map(side=>patternBounds(draft,side));
   const outside=Math.max(limits?.outside??0,...bounds.map(panel=>-panel.min));
   const inside=Math.max(limits?.inside??0,...bounds.map(panel=>panel.max*1.22));
   const height=Math.max(limits?.height??0,draft.rise+draft.leg*1.14);
@@ -44,16 +50,17 @@ export function createLegPlayground(dialog,{read,apply}){
     const dy=y(draft.rise+i*inchStep);
     return `<path class="leg-grid" d="M ${origin} ${dy} H ${x(inside)}"/>${side==='front'?`<text x="46" y="${dy+4}" text-anchor="end">${i*(values.unit==='cm'?20:6)}</text>`:''}`;
    }).join('');
-   const handles=points.map(point=>{
+   const handles=[{key:'knee',name:'Knee'},...draft.pivots.map(pivot=>({key:pivot.id,name:pivot.name})),{key:'hem',name:'Hem'}].map(({key:point,name:label})=>{
     const mark=patternMeasurement(draft,point,side);
     const [width,level]=mark.end;
     const px=x(width),py=y(level);
-    const label=point==='knee'?'Knee':'Hem';
-    return `<g data-leg-point="${point}" data-leg-side="${side}">
+    const shortLabel=label.length>15?label.slice(0,14)+'…':label;
+    const active=point===selectedPivot?' class="leg-point-selected"':'';
+    return `<g data-leg-point="${point}" data-leg-side="${side}"${active}><title>${escapeHTML(label)}</title>
      <path class="leg-guide" d="M ${origin} ${py} H ${px}"/>
      <circle class="leg-hit-point" cx="${px}" cy="${py}" r="20"/>
      <circle class="leg-handle" cx="${px}" cy="${py}" r="6"/>
-     <text class="leg-point-name" x="${px+sign*9}" y="${py-9}" text-anchor="${side==='front'?'end':'start'}">${label}</text>
+     <text class="leg-point-name" x="${px+sign*9}" y="${py-9}" text-anchor="${side==='front'?'end':'start'}">${escapeHTML(shortLabel)}</text>
     </g>`;
    }).join('');
    return `<g class="leg-pattern" data-leg-panel="${side}">
@@ -65,7 +72,7 @@ export function createLegPlayground(dialog,{read,apply}){
     ${handles}
    </g>`;
   });
-  chart.innerHTML=`<title>Front and back pattern panels with draggable knee and hem points</title>${panels.join('')}`;
+  chart.innerHTML=`<title>Front and back pattern panels with draggable knee, hem, and custom pivot points</title>${panels.join('')}`;
  }
 
  function redraw(){
@@ -77,7 +84,21 @@ export function createLegPlayground(dialog,{read,apply}){
    input.value=formatNumber(values[point][axis],values.unit);
    input.removeAttribute('aria-invalid');
   }
+  syncPivotEditor(values);
   drawPanels(values);
+ }
+
+ function syncPivotEditor(values){
+  if(!values.pivots.some(pivot=>pivot.id===selectedPivot))selectedPivot=values.pivots[0]?.id??null;
+  const selected=values.pivots.find(pivot=>pivot.id===selectedPivot);
+  pivotEditor.hidden=!selected;
+  if(!selected)return;
+  pivotSelect.innerHTML=values.pivots.map(pivot=>`<option value="${pivot.id}">${escapeHTML(pivot.name)}</option>`).join('');
+  pivotSelect.value=selected.id;
+  pivotName.value=selected.name;
+  pivotWidth.value=formatNumber(selected.width,values.unit);
+  pivotHeight.value=formatNumber(selected.height,values.unit);
+  for(const input of [pivotName,pivotWidth,pivotHeight])input.removeAttribute('aria-invalid');
  }
 
  function position(event){
@@ -91,14 +112,16 @@ export function createLegPlayground(dialog,{read,apply}){
   const p=pending;
   pending=null;
   const values=read(),unitScale=factor(values.unit);
+  const point=drag.point;
+  const current=values[point]??values.pivots.find(pivot=>pivot.id===point);
   const step=values.unit==='cm'?0.1/unitScale:1/16;
   const snap=value=>Math.round(value/step)*step;
   const offsetX=(p.x-drag.origin.x)*direction(drag.side)/(limits.scale*drag.share);
   const offsetY=(p.y-drag.origin.y)/limits.scale;
-  const minY=drag.point==='knee'?values.minKnee+step:values.knee.height+step;
-  const maxY=drag.point==='knee'?values.hem.height-step:limits.height-values.draft.rise;
+  const minY=point==='knee'?values.minKnee+step:point==='hem'?Math.max(values.knee.height,...values.draft.pivots.map(pivot=>pivot.height))+step:step;
+  const maxY=point==='hem'?limits.height-values.draft.rise:values.hem.height-step;
   const width=clamp(snap(drag.start.width+offsetX),step,limits.inside/Math.max(values.frontShare,1-values.frontShare));
-  const height=minY<=maxY?clamp(snap(drag.start.height+offsetY),minY,maxY):values[drag.point].height;
+  const height=minY<=maxY?clamp(snap(drag.start.height+offsetY),minY,maxY):current.height;
   const patch={};
   if(Math.abs(offsetX)>=step/2)patch.width=width;
   else if(drag.changedWidth)patch.width=drag.start.width;
@@ -121,7 +144,10 @@ export function createLegPlayground(dialog,{read,apply}){
   const point=target.dataset.legPoint,side=target.dataset.legSide;
   const values=read();
   const share=side==='front'?values.frontShare:1-values.frontShare;
-  drag={point,side,share,id:event.pointerId,origin:originPoint,start:values[point]};
+  const start=values[point]??values.pivots.find(pivot=>pivot.id===point);
+  if(!start)return;
+  drag={point,side,share,id:event.pointerId,origin:originPoint,start};
+  if(!points.includes(point)){selectedPivot=point;redraw();}
   event.preventDefault();
   chart.setPointerCapture(event.pointerId);
  });
@@ -146,13 +172,43 @@ export function createLegPlayground(dialog,{read,apply}){
    const invalid=parsed.error||parsed.value===null||parsed.value<=0;
    if(invalid||!apply(point,{[axis]:parsed.value})){
     input.setAttribute('aria-invalid','true');
-    message.textContent=invalid?'Enter a positive measurement.':'The knee must stay above the hem and below the crotch or thigh line.';
+    message.textContent=invalid?'Enter a positive measurement.':'Keep the knee and pivot points at different heights between the crotch and hem.';
     return;
    }
    message.textContent='';
    redraw();
   }
   input.addEventListener('change',commit);
+  input.addEventListener('keydown',event=>{if(event.key==='Enter')input.blur();});
+ }
+
+ dialog.querySelector('[data-add-pivot]').addEventListener('click',()=>{
+  const id=add();
+  if(!id){message.textContent='There is no room for another point between the crotch and hem.';return;}
+  selectedPivot=id;
+  message.textContent='';
+  redraw();
+  pivotName.focus();
+ });
+ pivotSelect.addEventListener('change',()=>{selectedPivot=pivotSelect.value;message.textContent='';redraw();});
+ dialog.querySelector('[data-remove-pivot]').addEventListener('click',()=>{
+  if(!selectedPivot||!remove(selectedPivot))return;
+  message.textContent='';
+  redraw();
+  (selectedPivot?pivotSelect:dialog.querySelector('[data-add-pivot]')).focus();
+ });
+ for(const [key,input] of [['name',pivotName],['width',pivotWidth],['height',pivotHeight]]){
+  input.addEventListener('change',()=>{
+   const value=key==='name'?input.value.trim():parseLength(input.value,read().unit).value;
+   if(!value||(key!=='name'&&value<=0)||!apply(selectedPivot,{[key]:value})){
+    input.setAttribute('aria-invalid','true');
+    message.textContent=key==='height'?'Use a distinct height between the crotch and hem.':key==='width'?'Enter a positive width.':'Enter a name for this point.';
+    return;
+   }
+   input.removeAttribute('aria-invalid');
+   message.textContent='';
+   redraw();
+  });
   input.addEventListener('keydown',event=>{if(event.key==='Enter')input.blur();});
  }
 
