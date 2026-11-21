@@ -97,14 +97,18 @@ export function patternMeasurement(r,key,side){
 }
 
 // One scale for both panels and both axes, including focused detail views.
-export function patternView(r,{key=null,unit='in',fractions=false,detail=false,seams=null,id='currentPattern',interactive=false}={}){
+export function patternView(r,{key=null,keys=null,unit='in',fractions=false,detail=false,seams=null,id='currentPattern',interactive=false}={}){
  if(!r?.valid)return '';
- const width=key==='all'?640:500,pad=key==='all'?88:52,gap=64,top=64;
+ const visibleRows=keys!==null?r.rows.filter(row=>keys.includes(row.key)):r.rows.filter(row=>key==='all'||row.key===key);
+ const wide=keys!==null||key==='all';
+ const width=wide?640:500,pad=wide?88:52,gap=64,top=64;
  const f=panelBounds(r.front),b=panelBounds(r.back);
  const s=Math.min(14,(width-2*pad-gap)/(f.max-f.min+b.max-b.min),560/r.panelLength);
  const height=top+r.panelLength*s+56,n=v=>Number(v.toFixed(3));
- const selected=r.rows.find(row=>row.key===key);
- const measurements=['front','back'].map(side=>patternMeasurement(r,key,side)).filter(Boolean);
+ const selected=visibleRows.length===1?visibleRows[0]:null;
+ const all=visibleRows.length===r.rows.length;
+ const title=all?'All measurements on the front and back panels':selected?selected.label+' on the front and back panels':visibleRows.length?'Selected measurements on the front and back panels':'Front and back drafting reference for your current measurements';
+ const measurements=visibleRows.flatMap(row=>['front','back'].map(side=>patternMeasurement(r,row.key,side))).filter(Boolean);
  let viewTop=0,viewBottom=height;
  if(detail&&measurements.length){
   const lo=Math.min(...measurements.flatMap(m=>[m.start[1],m.end[1]]));
@@ -128,12 +132,10 @@ export function patternView(r,{key=null,unit='in',fractions=false,detail=false,s
   const arrow=`M ${xy(gx,gy1)} L ${xy(gx,gy2)}`;
   const lx=origin+direction*(bounds.min+bounds.max)*s/2;
   let dimension='';
-  const all=key==='all';
-  for(const dimensionKey of (all?r.rows.map(row=>row.key):[key])){
-  const key=dimensionKey;
+  for(const {key,label} of visibleRows){
   const m=patternMeasurement(r,key,side);
   if(m){
-   if(all&&m.vertical){const lane={panelLength:3,rise:1.7,seatY:.4}[key]??.4;m.start[0]-=lane;m.end[0]-=lane;}
+   if(wide&&m.vertical){const lane={panelLength:3,rise:1.7,seatY:.4}[key]??.4;m.start[0]-=lane;m.end[0]-=lane;}
    let [a,c]=[point(m.start),point(m.end)];
    const lift=['waist','offset'].includes(key)?-12:key==='hem'?12:0;
    const extension=m.vertical?`M ${xy(m.start[1]===0?bounds.outside:0,m.start[1])} L ${a.map(n).join(' ')} M ${xy(0,m.end[1])} L ${c.map(n).join(' ')}`:lift?`M ${a.map(n).join(' ')} v ${lift} M ${c.map(n).join(' ')} v ${lift}`:'';
@@ -145,11 +147,11 @@ export function patternView(r,{key=null,unit='in',fractions=false,detail=false,s
    const rotation=m.vertical?` transform="rotate(-90 ${n(tx)} ${n(ty)})"`:'';
    const labelWidth=Math.max(32,value.length*8+10);
    const target=interactive?`<path class="dimension-hit-line" d="${line}"/><rect class="dimension-hit-label" x="${n(tx-labelWidth/2)}" y="${n(ty-16)}" width="${labelWidth}" height="23"${rotation}/>`:'';
-   const control=interactive?` role="button" tabindex="0" aria-label="${side==='front'?'Front':'Back'} ${r.rows.find(row=>row.key===key).label}, ${value}"`:'';
+   const control=interactive?` role="button" tabindex="0" aria-label="${side==='front'?'Front':'Back'} ${label}, ${value}"`:'';
    dimension+=`<g class="pattern-dimension" data-side="${side}" data-measurement="${key}" data-value="${m.value}"${control}><path class="dimension-extension" d="${extension}"/><path class="dimension-line" d="${line}" marker-start="url(#${id}Arrow)" marker-end="url(#${id}Arrow)"/><circle cx="${n(a[0])}" cy="${n(a[1])}" r="2.5"/><circle cx="${n(c[0])}" cy="${n(c[1])}" r="2.5"/>${target}<text class="dimension-value" x="${n(tx)}" y="${n(ty)}" text-anchor="middle"${rotation}>${value}</text></g>`;
   }
   }
   return `<g class="pattern-panel" data-pattern-side="${side}"><g clip-path="url(#${id}Clip)"><path class="level" d="${levels} ${reference}"/>${allowance?`<path class="allowance-fill" fill-rule="evenodd" d="${allowance} ${d}"/><path class="cutting-line" d="${allowance}"/>`:''}<path class="outline" d="${d}"/><path class="grain" d="${arrow}"/></g><text class="panel-title" x="${n(lx)}" y="${n(viewTop+17)}" text-anchor="middle">${side.toUpperCase()}</text>${dimension}</g>`;
  }
- return `<svg class="current-pattern${selected?' has-measurement':''}" viewBox="0 ${n(viewTop)} ${width} ${n(viewBottom-viewTop)}" data-scale="${s}" role="${interactive&&(selected||key==='all')?'group':'img'}" aria-labelledby="${id}Title" aria-describedby="${id}Description"><title id="${id}Title">${key==='all'?'All measurements on the front and back panels':selected?selected.label+' on the front and back panels':'Front and back drafting reference for your current measurements'}</title><desc id="${id}Description">Both panels use the same scale. ${selected?'Highlighted arrows show '+selected.label.toLowerCase()+'. ':''}${interactive&&(selected||key==='all')?'Choose a dimension for its detail view. ':''}Straight dimensions match your results. Curved seams are shaping references; cutting allowances are separate.</desc><defs><marker id="${id}Arrow" viewBox="0 0 6 6" markerWidth="5" markerHeight="5" refX="3" refY="3" orient="auto-start-reverse"><path d="M6 3 0 0 0 6Z" fill="var(--pattern-accent)"/></marker><clipPath id="${id}Clip"><rect x="0" y="${n(viewTop+28)}" width="${width}" height="${n(viewBottom-viewTop-28)}"/></clipPath></defs>${panel(r.front,f,'front')}${panel(r.back,b,'back')}</svg>`;
+ return `<svg class="current-pattern${selected?' has-measurement':''}" viewBox="0 ${n(viewTop)} ${width} ${n(viewBottom-viewTop)}" data-scale="${s}" role="${interactive&&visibleRows.length?'group':'img'}" aria-labelledby="${id}Title" aria-describedby="${id}Description"><title id="${id}Title">${title}</title><desc id="${id}Description">Both panels use the same scale. ${selected?'Highlighted arrows show '+selected.label.toLowerCase()+'. ':''}${interactive&&visibleRows.length?'Choose a dimension for its detail view. ':''}Straight dimensions match your results. Curved seams are shaping references; cutting allowances are separate.</desc><defs><marker id="${id}Arrow" viewBox="0 0 6 6" markerWidth="5" markerHeight="5" refX="3" refY="3" orient="auto-start-reverse"><path d="M6 3 0 0 0 6Z" fill="var(--pattern-accent)"/></marker><clipPath id="${id}Clip"><rect x="0" y="${n(viewTop+28)}" width="${width}" height="${n(viewBottom-viewTop-28)}"/></clipPath></defs>${panel(r.front,f,'front')}${panel(r.back,b,'back')}</svg>`;
 }

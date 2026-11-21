@@ -12,8 +12,6 @@
 #overviewGraphic .current-pattern .level{opacity:.45}
 #overviewGraphic .current-pattern .grain{opacity:.3}
 .measurement-focus{padding:32px 24px;border-left:1px solid var(--line);align-self:stretch}
-.measurement-focus>label{display:block;font-size:11px;font-weight:500;letter-spacing:.055em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
-#measurementChoice{width:100%;min-height:48px;font-size:14px;padding:12px 28px 12px 12px;border:1px solid var(--line);border-radius:5px;background:var(--paper);color:var(--ink)}
 .focus-caption{margin:28px 0 12px;font-size:11px;color:var(--muted)}
 .focus-values{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-bottom:24px;border-bottom:1px solid var(--line)}
 .focus-values span{display:block;font-size:12px;color:var(--muted);margin-bottom:8px}
@@ -47,7 +45,6 @@
  #overviewGraphic{padding:12px}
  #overviewGraphic svg{max-height:440px}
  .measurement-focus{border-left:0;border-top:1px solid var(--line);padding:24px}
- .measurement-focus>label{margin-bottom:10px}
  .focus-caption{margin:20px 0 10px}
  .focus-values{padding-bottom:16px}
  #focusExplanation{margin-top:16px}
@@ -81,7 +78,6 @@
 .current-pattern .cutting-line{stroke:var(--pattern-accent);stroke-width:1.35;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
 .current-pattern .allowance-fill{fill:color-mix(in srgb,var(--pattern-accent) 28%,transparent)}
 .pattern-legend .legend-cut{border-color:var(--pattern-accent)}
-#measurementChoice:focus-visible{outline:2px solid var(--pattern-accent);outline-offset:3px}
 
 .top-fractions{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 10px;font-size:12px;color:var(--muted);cursor:pointer;border-bottom:1px solid transparent;white-space:nowrap}
 .top-fractions input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
@@ -292,8 +288,7 @@
   select,
   textarea,
   .field-options select,
-  select.under-select,
-  #measurementChoice {
+  select.under-select {
     border-color: var(--control-line);
     border-radius: 0;
     font-weight: 600;
@@ -324,7 +319,6 @@
 
   .target-note,
   .workbench-link,
-  .measurement-focus > label,
   .focus-values strong,
   .draft-summary strong,
   .pattern-inspector-values strong,
@@ -630,4 +624,90 @@
 #overviewGraphic .pattern-dimension[role=button]:focus-visible .dimension-hit-label {
   stroke: var(--ink);
   stroke-width: 1.5;
+}
+
+/* Keep the checklist within reach of the pattern on small screens. */
+.measurement-picker {
+  border: 1px solid var(--control-line, var(--line));
+  background: var(--surface);
+}
+
+.measurement-picker > summary,
+.measurement-picker-actions,
+.measurement-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.measurement-picker > summary {
+  justify-content: space-between;
+  padding: 10px 8px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.measurement-picker > summary::-webkit-details-marker {
+  display: none;
+}
+
+.measurement-picker > summary::after {
+  content: '+';
+}
+
+.measurement-picker[open] > summary::after {
+  content: '−';
+}
+
+#measurementCount {
+  margin-inline-start: auto;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.measurement-picker-actions {
+  padding: 4px 8px;
+  border-block: 1px solid var(--line);
+}
+
+.measurement-picker-actions button {
+  flex: 1;
+  min-height: 36px;
+  padding-inline: 4px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.measurement-options {
+  min-inline-size: 0;
+  max-height: min(250px, 40dvh);
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.measurement-options label {
+  cursor: pointer;
+  min-height: 42px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.measurement-options label + label {
+  border-top: 1px solid var(--line);
+}
+
+.measurement-options label:has(input:checked) {
+  background: var(--soft);
+}
+
+.measurement-options input {
+  flex: none;
 }
