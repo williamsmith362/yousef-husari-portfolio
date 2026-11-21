@@ -102,12 +102,12 @@ export function computeDraft(input) {
   if(d.seams.frontOut===0 || d.seams.backOut===0) notices.push('An outseam allowance is zero. Confirm where the stitching sits relative to the selvedge.');
   const rows=[
     {key:'panelLength',label:'Outseam',f:panelLength,b:panelLength},
+    {key:'waist',label:'Waistband',f:front.waist,b:back.waist},
     {key:'rise',label:'Rise height',f:rise,b:rise},
+    {key:'riseH',label:'Rise width',f:front.riseH,b:back.riseH},
     {key:'seatY',label:'Seat height',f:seatY,b:seatY},
     {key:'seat',label:'Seat width',f:front.seat,b:back.seat},
-    {key:'riseH',label:'Rise width',f:front.riseH,b:back.riseH},
     {key:'offset',label:'Seat offset',f:null,b:back.offset},
-    {key:'waist',label:'Waistband',f:front.waist,b:back.waist},
     {key:'section1',label:'Crotch → knee / point 1',f:kneeY,b:kneeY},
     {key:'knee',label:'Point 1 width',f:front.knee,b:back.knee},
     {key:'section2',label:'Point 1 → point 2',f:section2,b:section2},
