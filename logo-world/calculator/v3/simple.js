@@ -74,7 +74,7 @@ const mainHelp=new Set(['waist','seat','band','depth','length','opening']);
 const quickHelp={
  waist:'Choose around or flat to match your measurement.',
  seat:'Measure at the widest part of the seat.',
- band:'Finished waistband height.',
+ band:'Finished vertical distance from the waistband top to its attachment seam.',
  depth:'Measure straight down to crotch level.',
  length:'Measure from the waistband to the hem.',
  opening:'Width across one hem, laid flat.',

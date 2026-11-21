@@ -43,14 +43,14 @@ function setValue(key,value){if(key.startsWith('seams.'))state.draft.seams[key.s
 const domId=key=>key.replaceAll('.','_');
 const fieldDefinitions={
  mainFields:[
-  ['waist','Waist','', 'circumference'],['seat','Full seat','', 'circumference'],
-  ['band','Band height','Finished waistband height.'],['depth','Vertical crotch depth','Top of waistband straight down to crotch level.'],
+  ['waist','Waist','', 'circumference'],['seat','Seat','', 'circumference'],
+  ['band','Waistband width','Finished vertical distance from the waistband top to its attachment seam.'],['depth','Vertical crotch depth','Top of waistband straight down to crotch level.'],
   ['length','Total length','', 'lengthOrigin'],['opening','Flat hem opening','One hem, measured flat.']
  ],
  fitFields:[
   ['waistEase','Body waist ease','Added only when waist source is Body.'],['seatEase','Body seat ease','Added only when seat source is Body.'],
   ['frontRise','Curved front rise','Optional target along the front stitching seam, from the top of the band. Not vertical depth.'],
-  ['hipDepth','Waist to full seat','Optional. Straight down from top of band to full-seat level.'],
+  ['hipDepth','Waist to seat','Optional. Straight down from top of band to seat level.'],
   ['depthDrop','Extra crotch drop','Added to vertical depth. Keep 0 for a finished-pants depth.'],
   ['kneeDistance','Crotch to knee','Optional vertical distance. Blank uses 40% of the leg.'],
   ['kneeWidth','Flat knee width','Optional finished target. Blank uses hem + ½″.'],
@@ -132,7 +132,7 @@ function render(){
  }
  $('copyDraft').disabled=!result.valid;
  let appendix=$('printAppendix');if(!appendix){appendix=document.createElement('div');appendix.id='printAppendix';appendix.className='print-only';$('draft').append(appendix);}
- appendix.innerHTML=result.valid?`<h3>Cutting allowances</h3><p>${fieldDefinitions.seamFields.map(([k,label])=>`${escapeHTML(label)}: ${fl(getValue(k))}`).join(' · ')}</p>${state.draft.frontRise!==null?`<p>Curved front-rise target: ${fl(state.draft.frontRise)}. Check on the drawn stitching curve.</p>`:''}<p>Finished total length: ${fl(result.total)} · Band height: ${fl(state.draft.band)}</p><p style="white-space:pre-wrap">${escapeHTML(state.draft.notes)}</p>`:'';
+ appendix.innerHTML=result.valid?`<h3>Cutting allowances</h3><p>${fieldDefinitions.seamFields.map(([k,label])=>`${escapeHTML(label)}: ${fl(getValue(k))}`).join(' · ')}</p>${state.draft.frontRise!==null?`<p>Curved front-rise target: ${fl(state.draft.frontRise)}. Check on the drawn stitching curve.</p>`:''}<p>Finished total length: ${fl(result.total)} · Waistband width: ${fl(state.draft.band)}</p><p style="white-space:pre-wrap">${escapeHTML(state.draft.notes)}</p>`:'';
  $('notesIndicator').textContent=state.draft.notes?'Saved with this draft':'Optional';
  if(!result.valid){
   const keys=Object.keys(result.errors),key=keys[0];
@@ -144,13 +144,13 @@ function render(){
   $('results').innerHTML=`<div class="pattern-workbench">
    <div class="workbench-tools"><div class="pattern-legend"><span><i class="legend-stitch"></i>Stitch</span><span><i class="legend-cut"></i>Cut · seam allowance</span></div><button type="button" class="workbench-link" data-open-allowances>Seam allowances ↗</button></div>
    <div class="pattern-stage"><figure id="overviewGraphic">${patternView(result,{key:row.key,seams:state.draft.seams,unit:state.unit,fractions:state.fractions,id:'overviewPattern',interactive:true})}</figure>
-   <aside class="measurement-focus"><label for="measurementChoice">Explore a measurement</label><select id="measurementChoice"><option value="none" ${row.key==='none'?'selected':''}>Pattern only</option><option value="all" ${overviewKey==='all'?'selected':''}>All measurements</option>${result.rows.map(r=>`<option value="${r.key}" ${r.key===row.key?'selected':''}>${r.label}</option>`).join('')}</select><p class="focus-caption" ${row.key==='none'?'hidden':''}>Stitching line · per panel</p><div class="focus-values" ${measured?'':'hidden'}><div><span>Front</span><strong id="focusFront">${fl(row.f)}</strong></div><div><span>Back</span><strong id="focusBack">${fl(row.b)}</strong></div></div><p id="focusExplanation">${measurementNote(row.key)}</p><button class="workbench-link" type="button" data-measurement-detail ${measured?'':'hidden'}>View measurement detail ↗</button><p class="focus-estimate" id="focusEstimate">${estimateNote(row.key)}</p><button class="workbench-link waist-guide-link" type="button" data-waist-guide ${['waist','all'].includes(overviewKey)?'':'hidden'}>How to mark the waist points ↗</button></aside></div>
+   <aside class="measurement-focus"><label for="measurementChoice">Explore a measurement</label><select id="measurementChoice"><option value="none" ${row.key==='none'?'selected':''}>Pattern only</option><option value="all" ${overviewKey==='all'?'selected':''}>All measurements</option>${result.rows.map(r=>`<option value="${r.key}" ${r.key===row.key?'selected':''}>${r.label}</option>`).join('')}</select><p class="focus-caption" ${row.key==='none'?'hidden':''}>Stitching line · per panel</p><div class="focus-values" ${measured?'':'hidden'}><div><span>Front</span><strong id="focusFront">${fl(row.f)}</strong></div><div><span>Back</span><strong id="focusBack">${fl(row.b)}</strong></div></div><p id="focusExplanation">${measurementNote(row.key)}</p><button class="workbench-link" type="button" data-measurement-detail ${measured?'':'hidden'}>View measurement detail ↗</button><p class="focus-estimate" id="focusEstimate">${estimateNote(row.key)}</p><button class="workbench-link waist-guide-link" type="button" data-waist-guide ${['waist','all'].includes(overviewKey)?'':'hidden'}>How to mark the waistband points ↗</button></aside></div>
    <div class="workbench-bottom"><span>Shape and check curves before cutting.</span><button class="workbench-link" type="button" data-pattern-help>Help with this pattern ↗</button></div>
   </div><details class="all-measurements" ${allMeasurementsOpen?'open':''}><summary>All measurements <span>Full drafting table</span></summary><table class="measure-table interactive-results"><caption>Stitching-line dimensions · allowances shown separately on the diagram</caption><thead><tr><th>Measurement</th><th>Front</th><th>Back</th></tr></thead><tbody>${result.rows.map(r=>`<tr data-pattern-key="${r.key}"><td><button class="result-measure-button" type="button" data-pattern-key="${r.key}">${r.label}<span>↗</span></button></td><td>${fl(r.f)}</td><td>${fl(r.b)}</td></tr>`).join('')}</tbody></table></details>`;
   $('results').querySelector('.all-measurements').addEventListener('toggle',e=>{allMeasurementsOpen=e.target.open;});
 
  }
- $("draftReference").innerHTML='<p class="table-note">Lengths below the crotch are consecutive vertical sections. The sketch is a reference map, not a scaled cutting pattern. Waist edge values follow the sloped stitching lines. The waist detail gives the starting allocations.</p>';
+ $("draftReference").innerHTML='<p class="table-note">Lengths below the crotch are consecutive vertical sections. The sketch is a reference map, not a scaled cutting pattern. Waistband values measure the sloped stitching lines across the tops of the panels. The Waistband detail gives the starting allocations.</p>';
  renderFormulas();renderComparison();renderFabric();
  document.querySelectorAll('[data-popup-fractions]').forEach(b=>b.setAttribute('aria-pressed',String(state.fractions&&state.unit==='in')));
  if($('measurementDialog').open){if(result.valid)renderMeasurementPopup();else $('measurementDialog').close();}
@@ -160,12 +160,11 @@ const patternNotes={
  none:'Front and back stitching lines and cutting allowances.',
  all:'Select any dimension to open its detail. The full table below lists every front and back value.',
  panelLength:'Straight vertical height from the waistband attachment to the hem. The curved outseam can be longer.',
- rise:'Straight down from the waistband attachment to crotch level. This excludes band height.',
- seatY:'Straight down from the waistband attachment to the full-seat line.',
- seat:'Across each panel at the full-seat line, before the crotch extension.',
+ rise:'Straight down from the waistband attachment to crotch level. Measure below the waistband, starting at its attachment seam.',
+ seatY:'Straight down from the waistband attachment to the seat line.',
+ seat:'Across each panel at the seat line, before the crotch extension.',
  riseH:'Across from the outseam reference to the crotch point, including the extension.',
- offset:'Back only. The horizontal construction offset from the waist-center reference to the full-seat reference.',
- waist:'Front: ½″ inward and ½″ down. Back: ¾″ inward and ⅜″ up. These are construction offsets; true your shaped waist edge to its target allocation.',
+ offset:'Back only. The horizontal construction offset from the waist-center reference to the seat reference.',
  section1:'The vertical section from crotch level down to the knee, also called point 1.',
  knee:'Across each panel at the knee, also called point 1.',
  section2:'The vertical section from point 1 down to point 2.',
@@ -223,7 +222,7 @@ $('results').addEventListener('click',event=>{
 });
 function renderFormulas(){
  const d=state.draft;
- $('formulaNotes').innerHTML=`<p><strong>Measurement convention.</strong> Waist and seat are converted to full circumferences. Finished-pants inputs get no added ease. Body inputs receive only their selected ease.</p><p><code>Panel height = finished total length − band height</code><br><code>Crotch level = vertical depth + drop − band height</code><br><code>Leg span = panel height − crotch level</code></p><p><code>Front waist = waist target / 4 − back advantage / 2</code><br><code>Back waist = waist target / 4 + back advantage / 2</code><br>The two front and two back allocations total your waist target before shaping. Waist edge values in the table follow the sloped lines after the center points are moved.</p><p><code>Base seat width = seat target / 4</code><br><code>Q = seat target / 8 − deduction</code><br><code>Front crotch width = seat width + Q/2</code><br><code>Back crotch width = seat width + Q</code><br><code>Back seat offset reference = Q/4</code><br>Offset is a construction reference; confirm how it is used when shaping your back curve.</p><p><code>Front leg width = circumference × ${Number((d.frontShare*100).toFixed(2))}%</code><br><code>Back leg width = circumference × ${Number(((1-d.frontShare)*100).toFixed(2))}%</code><br>The split preserves each selected circumference. Blank knee uses flat hem + ½″; blank point 2 uses hem width.</p><p>Without measured positions: seat level is ${Number((d.seatRatio*100).toFixed(2))}% of panel crotch depth; knee is 40% of the leg span. Point 2 is halfway from knee to hem.</p><p>Front-rise seam length is a curved target and is never converted into vertical depth. The preview illustrates shaping. Check the crotch seam length, darts or yoke shaping, and matching seam lengths on your drawn pattern.</p><p><a href="https://pubs.nmsu.edu/_c/C227/index.html" target="_blank" rel="noopener">Measurement reference: crotch depth vs. crotch length ↗</a></p>`;
+ $('formulaNotes').innerHTML=`<p><strong>Measurement convention.</strong> Waist and seat are converted to full circumferences. Finished-pants inputs get no added ease. Body inputs receive only their selected ease.</p><p><code>Outseam = finished total length − waistband width</code><br><code>Rise height = vertical depth + drop − waistband width</code><br><code>Leg span = outseam − rise height</code></p><p><code>Front waist = waist target / 4 − back advantage / 2</code><br><code>Back waist = waist target / 4 + back advantage / 2</code><br>The two front and two back allocations total your waist target before shaping. Waistband values in the table follow the sloped lines after the center points are moved.</p><p><code>Base seat width = seat target / 4</code><br><code>Q = seat target / 8 − deduction</code><br><code>Front rise width = seat width + Q/2</code><br><code>Back rise width = seat width + Q</code><br><code>Back seat offset = Q/4</code><br>Offset is a construction reference; confirm how it is used when shaping your back curve.</p><p><code>Front leg width = circumference × ${Number((d.frontShare*100).toFixed(2))}%</code><br><code>Back leg width = circumference × ${Number(((1-d.frontShare)*100).toFixed(2))}%</code><br>The split preserves each selected circumference. Blank knee uses flat hem + ½″; blank point 2 uses hem width.</p><p>Without measured positions: seat height is ${Number((d.seatRatio*100).toFixed(2))}% of panel crotch depth; knee is 40% of the leg span. Point 2 is halfway from knee to hem.</p><p>Front-rise seam length is a curved target and is never converted into vertical depth. The preview illustrates shaping. Check the crotch seam length, darts or yoke shaping, and matching seam lengths on your drawn pattern.</p><p><a href="https://pubs.nmsu.edu/_c/C227/index.html" target="_blank" rel="noopener">Measurement reference: crotch depth vs. crotch length ↗</a></p>`;
 }
 function renderComparison(){
  const p=state.profiles.find(p=>p.id===state.comparisonId);

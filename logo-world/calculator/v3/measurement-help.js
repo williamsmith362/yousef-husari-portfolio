@@ -50,11 +50,11 @@ function guidance(field,mode,belowBand){
       return lesson('The finished height of your waistband.', 'jeans-band',body?[
         'Choose how tall you want the finished waistband to be. You can use a pair you like as a reference.',
         'On reference pants, measure from the band’s top edge to its lower attachment seam, away from belt loops.',
-        'Enter that height in Band height.'
+        'Enter that distance in Waistband width.'
       ]:[
         'Find a straight section of the waistband, away from belt loops.',
         'Measure from the top edge down to the seam that attaches the band to the pants.',
-        'Enter that finished height in Band height.'
+        'Enter that distance in Waistband width.'
       ],'Use the height once in every method. Leave cutting allowances out.');
     case 'depth':
       return lesson('The straight vertical distance from waistband level to crotch level.',body?'body-depth':'jeans-depth',[
@@ -86,14 +86,14 @@ function guidance(field,mode,belowBand){
       ],`Always enter one flat width here. Example: a ${f(8)} flat hem → enter ${n(8)}.`);
     default:
       if(body)return lesson('Use your body for waist and seat, then choose your finished lengths and hem.','body-waist',[
-        'Mark where the top of the waistband will sit. Measure your waist and full seat around your body.',
+        'Mark where the top of the waistband will sit. Measure your waist and seat around your body.',
         'Choose Body · around for each of those fields. Add extra room in Step 2.',
-        'Use each field’s info button for band height, seated depth, outside length and flat hem width.'
+        'Use each field’s info button for waistband width, seated depth, outside length and flat hem width.'
       ],'Browsing these tabs does not change your measurements or selected method.');
       return lesson(flat?'Measure the waist and seat across your pants, laid flat.':'Measure the full waist and seat around a pair that fits.',flat?'jeans-waist':'jeans-waist-around',[
         'Use a pair of pants that fits you well. Fasten them and smooth the fabric without stretching.',
-        flat?'Enter the flat waist and seat widths. Choose Pants · flat ×2 for each; the calculator doubles them.':'Measure all the way around the waist and full seat. Choose Pants · around for each.',
-        'Use each field’s info button for band height, seated depth, outside length and flat hem width.'
+        flat?'Enter the flat waist and seat widths. Choose Pants · flat ×2 for each; the calculator doubles them.':'Measure all the way around the waist and seat. Choose Pants · around for each.',
+        'Use each field’s info button for waistband width, seated depth, outside length and flat hem width.'
       ],'The ×2 setting applies to waist and seat. Enter heights, lengths and hem width once.');
   }
 }

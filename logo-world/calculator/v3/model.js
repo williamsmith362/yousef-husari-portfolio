@@ -85,7 +85,7 @@ export function computeDraft(input) {
   const frontWaist=W/4-d.waistBalance/2, backWaist=W/4+d.waistBalance/2;
   if(rise<=0) errors.depth='Crotch level must be below the bottom of the waistband.';
   if(leg<=0) errors.length='Hem must be below crotch level. Check total length and vertical depth.';
-  if(seatY<=0 || seatY>=rise) errors.hipDepth='Full-seat level must fall between the waistband attachment and crotch line.';
+  if(seatY<=0 || seatY>=rise) errors.hipDepth='Seat level must fall between the waistband attachment and crotch line.';
   if(kneeY<=0 || kneeY>=leg) errors.kneeDistance='Knee point must fall between crotch level and the hem.';
   if(frontWaist<=0 || backWaist<=0) errors.waistBalance='Waist balance leaves a panel with no waist width.';
   if(Q<=0) errors.forkDeduction='Crotch-extension deduction is too large for the seat target.';
@@ -112,13 +112,13 @@ export function computeDraft(input) {
     return Math.hypot(point.x-(inside-panel.waist),point.y);
   };
   const rows=[
-    {key:'panelLength',label:'Panel outseam height',f:panelLength,b:panelLength},
-    {key:'rise',label:'Crotch level below band',f:rise,b:rise},
-    {key:'seatY',label:'Seat level below band',f:seatY,b:seatY},
+    {key:'panelLength',label:'Outseam',f:panelLength,b:panelLength},
+    {key:'rise',label:'Rise height',f:rise,b:rise},
+    {key:'seatY',label:'Seat height',f:seatY,b:seatY},
     {key:'seat',label:'Seat width',f:front.seat,b:back.seat},
-    {key:'riseH',label:'Width to crotch point',f:front.riseH,b:back.riseH},
-    {key:'offset',label:'Seat offset reference',f:null,b:back.offset},
-    {key:'waist',label:'Waist edge',f:waistEdge('front',front),b:waistEdge('back',back)},
+    {key:'riseH',label:'Rise width',f:front.riseH,b:back.riseH},
+    {key:'offset',label:'Seat offset',f:null,b:back.offset},
+    {key:'waist',label:'Waistband',f:waistEdge('front',front),b:waistEdge('back',back)},
     {key:'section1',label:'Crotch → knee / point 1',f:kneeY,b:kneeY},
     {key:'knee',label:'Point 1 width',f:front.knee,b:back.knee},
     {key:'section2',label:'Point 1 → point 2',f:section2,b:section2},
