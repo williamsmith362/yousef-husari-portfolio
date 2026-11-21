@@ -10,7 +10,7 @@
   document.documentElement.dataset.theme=value;
   const button=document.getElementById('themeToggle');
   if(button){button.setAttribute('aria-pressed',String(dark));button.setAttribute('aria-label',dark?'Switch to light mode':'Switch to dark mode');button.title=dark?'Switch to light mode':'Switch to dark mode';}
-  const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=dark?'#171717':'#ffffff';
+  const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=dark?'#1b1b1b':'#f7f7f7';
   if(notify)document.dispatchEvent(new CustomEvent('appearance:change',{detail:{theme:value,external:false}}));
  }
  apply(explicit|| (system.matches?'midnight':'parchment'));

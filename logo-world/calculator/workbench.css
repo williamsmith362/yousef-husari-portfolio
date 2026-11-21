@@ -365,7 +365,10 @@
     background: var(--work-area);
   }
 
-  .appbar,
+  .appbar {
+    background: var(--work-area);
+  }
+
   .step-actions,
   .measurement-focus {
     background: var(--surface);
