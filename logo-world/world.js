@@ -53,7 +53,7 @@ let headerHeight = 115, headerWidth = 0, previousHeaderOpacity = -1;
 let paintFrame = 0, qualityTimer = 0;
 let headerAnchor = homeAnchor(size), pendingMeasure = false;
 let previewWarmProgress = 0;
-const previewQueue = createImageQueue({ concurrency: navigator.connection?.saveData ? 3 : innerWidth < 620 ? 7 : 9 });
+const previewQueue = createImageQueue({ concurrency: navigator.connection?.saveData ? 3 : innerWidth < 620 ? 10 : 12 });
 const detailQueue = createImageQueue({ concurrency: innerWidth < 620 ? 2 : 4 });
 
 const items = projects.flatMap(project => project.items.map(item => {
@@ -209,7 +209,7 @@ function requestPreview(item, priority) {
 }
 
 function warmPreviews(value) {
-  const ahead = Math.min(1, Math.floor(value * 16) / 16 + .49);
+  const ahead = Math.min(1, Math.floor(value * 16) / 16 + .62);
   if (ahead <= previewWarmProgress) return;
   previewWarmProgress = ahead;
   for (const item of items) {
