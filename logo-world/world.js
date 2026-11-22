@@ -4,8 +4,7 @@ import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
 import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=raised-header-2';
 import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=hoodie-growth-1';
-import { SCROLL_FEEL, inputTime, damp, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
-import { createNativeIntroScroll } from './native-scroll.mjs?v=photo-wheel-1';
+import { SCROLL_FEEL, inputTime, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=wave-load-2';
 
 const view = document.querySelector('.world-viewport');
@@ -15,10 +14,11 @@ const header = document.querySelector('.world-header');
 const dialog = document.querySelector('.world-gallery');
 const announcement = document.getElementById('world-announcement');
 const dragHint = document.querySelector('.world-drag-hint');
-const scrollHint = document.createElement('p');
-scrollHint.className = 'world-scroll-hint';
-scrollHint.innerHTML = '<span>scroll down</span><svg aria-hidden="true" viewBox="0 0 16 20" width="12" height="15"><path d="M8 1v17m-5-5 5 5 5-5"/></svg>';
-let scrollHintProgress = 0, scrollHintDismissed = false;
+const controls = document.querySelector('.world-controls');
+const replayButton = controls.querySelector('.world-replay');
+const replayLabel = replayButton.querySelector('.world-replay-label');
+const openingHold = 450;
+const revealDuration = 5200;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
 const projects = makeProjects(pieces);
@@ -31,9 +31,8 @@ let size = { w: innerWidth, h: innerHeight, top: 0, fitTop: 139 };
 let pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
 let camera = { x: 0, y: pivot.y, z: 1 };
 let mode = 'intro';
-let progress = 0, targetProgress = 0, introFrame = 0, lastIntroTime = 0;
-let introVelocity = 0, introResponse = 80, introGlideTime = 0;
-let cameraFrame = 0, resizeFrame = 0, navigationReadyAt = 0;
+let progress = 0, introFrame = 0, introElapsed = 0, lastIntroTime = 0;
+let cameraFrame = 0, resizeFrame = 0;
 let cameraTarget = null, cameraResponse = 80, lastCameraTime = 0, cameraGlideTime = 0;
 let cameraInput = null;
 let cameraVelocity = { x: 0, y: 0 };
@@ -78,20 +77,6 @@ const items = projects.flatMap(project => project.items.map(item => {
 const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && overviewReady && !dialog.open && !cameraFrame, reduced: () => reduce.matches, onDetail: scheduleImageQuality, reservedArea: BOARD_HEADER_AREA });
 
 function minimumZoom() { return fitCamera(extent, size).z; }
-function introScrollRange() { return size.w < 620 ? SCROLL_FEEL.introMobilePixels : SCROLL_FEEL.introDesktopPixels; }
-
-function updateScrollHint(value) {
-  if (scrollHintDismissed) return;
-  // The opening instruction fades once and stays gone when scrolling back up.
-  scrollHintProgress = Math.max(scrollHintProgress, value);
-  const opacity = 1 - smooth(scrollHintProgress / .08);
-  scrollHint.style.opacity = opacity.toFixed(3);
-  if (opacity === 0) {
-    scrollHintDismissed = true;
-    scrollHint.remove();
-  }
-}
-
 function finishDragHint() {
   dragHintActive = false;
   dragHint?.classList.remove('is-visible');
@@ -129,7 +114,6 @@ function considerDragHint(distance) {
 function readyOverview() {
   overviewReady = true;
   hintDistance = 0; hintEvents = 0;
-  navigationReadyAt = performance.now();
   announcement.textContent = 'Portfolio ready to explore.';
   scheduleImageQuality();
 }
@@ -254,14 +238,14 @@ function trimDetailImages() {
 }
 
 function refreshImageQuality() {
-  if (dialog.open || cameraFrame || introFrame || nativeIntro.scrolling) return;
+  if (dialog.open || cameraFrame || introFrame) return;
   if (points.size) { scheduleImageQuality(); return; }
   detailQueue.resume();
   for (const item of items) {
     if (!needsDetail(item) || item.imageLevel !== 'preview') continue;
     detailQueue.request(item, '/pieces/' + item.image.file + '.webp', {
       priority: Math.max(1,1000-Math.max(item.width,item.height)*camera.z),
-      wanted: () => !dialog.open && needsDetail(item) && !cameraFrame && !introFrame && !nativeIntro.scrolling && !points.size,
+      wanted: () => !dialog.open && needsDetail(item) && !cameraFrame && !introFrame && !points.size,
       ready(image) {
         item.imageElement = replaceDecodedImage(item.imageElement, image, { fade: false });
         item.imageLevel = 'full'; item.detailUsedAt = performance.now();
@@ -323,7 +307,6 @@ function paintCamera() {
 }
 
 function paintLayout(value) {
-  updateScrollHint(value);
   const spread = value;
   if (value > .08) warmPreviews(value);
   if (value > .55) living.warm();
@@ -348,62 +331,53 @@ function paintLayout(value) {
 }
 
 function finishIntro() {
-  nativeIntro.disable();
-  introVelocity = 0;
-  progress = targetProgress = 1;
+  cancelAnimationFrame(introFrame);
+  introFrame = 0;
+  progress = 1;
   mode = 'explore';
   preset = 'all';
   camera = fitCamera(extent, size);
   paintLayout(1);
   buildSpatialGrid();
   view.dataset.mode = mode;
-  view.addEventListener('wheel', handleWorldWheel, { passive: false });
+  controls.dataset.playing = 'false';
+  replayButton.removeAttribute('aria-disabled');
+  replayLabel.textContent = 'Replay';
   readyOverview();
 }
 
 function animateIntro(time) {
-  introFrame = 0;
-  if (dialog.open || mode !== 'intro') { lastIntroTime = 0; return; }
-  const elapsed = lastIntroTime ? Math.min(64, time - lastIntroTime) : 16;
+  if (lastIntroTime) introElapsed += Math.min(64, time - lastIntroTime);
   lastIntroTime = time;
-  if (introVelocity && !reduce.matches) {
-    const step = decayVelocity(introVelocity, elapsed);
-    const next = progress + step.distance;
-    progress = targetProgress = clamp01(next);
-    introVelocity = step.velocity;
-    introGlideTime += elapsed;
-    if (next <= 0 || next >= 1 || Math.abs(introVelocity)*introScrollRange() < SCROLL_FEEL.stopSpeed || introGlideTime >= SCROLL_FEEL.maxGlideMs) introVelocity = 0;
-  } else {
-    progress = reduce.matches ? targetProgress : damp(progress, targetProgress, elapsed, introResponse);
-    if (Math.abs(progress - targetProgress) < .00005) progress = targetProgress;
+  const fraction = clamp01((introElapsed - openingHold) / revealDuration);
+  if (fraction === 1) { finishIntro(); return; }
+  const next = smooth(fraction);
+  if (next !== progress) {
+    progress = next;
+    replayButton.style.setProperty('--reveal-progress', fraction.toFixed(4));
+    paintLayout(progress);
   }
-  nativeIntro.sync(progress);
-  paintLayout(progress);
-  if (progress === 1) { finishIntro(); lastIntroTime = 0; return; }
-  if (introVelocity || progress !== targetProgress) introFrame = requestAnimationFrame(animateIntro);
-  else lastIntroTime = 0;
+  introFrame = requestAnimationFrame(animateIntro);
 }
 
-function stopIntro() {
-  cancelAnimationFrame(introFrame); introFrame = 0; lastIntroTime = 0;
-  introVelocity = 0; introGlideTime = 0; targetProgress = progress;
-}
-
-function advanceIntro(delta, { direct = false, response = 80 } = {}) {
-  if (mode !== 'intro') return;
+function startIntro() {
+  resetGesture();
+  stopCamera();
   living.clear(true);
-  if (introVelocity || direct) { introVelocity = 0; targetProgress = progress; }
-  targetProgress = clamp01(targetProgress + delta);
-  introResponse = response;
-  if (direct || reduce.matches) { progress = targetProgress; nativeIntro.sync(progress); }
-  if (!introFrame) { lastIntroTime = performance.now(); introFrame = requestAnimationFrame(animateIntro); }
-}
-
-function startIntroGlide(velocity) {
-  velocity *= SCROLL_FEEL.flickGain;
-  if (mode !== 'intro' || reduce.matches || Math.abs(velocity)*introScrollRange() < SCROLL_FEEL.minGlideSpeed) return;
-  stopIntro(); introVelocity = velocity;
-  lastIntroTime = performance.now();
+  finishDragHint();
+  overviewReady = false;
+  spatialGrid = null;
+  progress = introElapsed = lastIntroTime = 0;
+  mode = 'intro';
+  view.dataset.mode = mode;
+  controls.dataset.playing = 'true';
+  replayButton.setAttribute('aria-disabled', 'true');
+  replayButton.style.setProperty('--reveal-progress', '0');
+  replayLabel.textContent = 'Playing';
+  announcement.textContent = 'Playing portfolio animation.';
+  if (reduce.matches) { finishIntro(); return; }
+  paintLayout(0);
+  warmPreviews(0);
   introFrame = requestAnimationFrame(animateIntro);
 }
 
@@ -464,11 +438,9 @@ function zoom(factor, point = pivot, animate = false, response = 80, input = 'zo
   moveCamera(zoomAt(animate && cameraInput === input && cameraTarget ? cameraTarget : camera, factor, point, pivot, minimumZoom()), animate, response, input);
 }
 
-function returnHome(event) {
-  if (event) event.preventDefault();
-  if (dialog.open) closeGallery();
-  if (mode === 'intro') advanceIntro(-targetProgress);
-  else { preset = 'home'; moveCamera(homeCamera(), true); }
+function returnHome() {
+  preset = 'home';
+  moveCamera(homeCamera(), true);
 }
 
 function showAll() {
@@ -484,12 +456,11 @@ function measure(remeasureLayout = true) {
   const widthChanged = Math.abs(innerWidth-layoutWidth) > 1 || !startingBoxes.length;
   const previousPivot = pivot;
   living.clear(true);
-  if (widthChanged) { stopCamera(); introVelocity = 0; }
+  if (widthChanged) stopCamera();
   headerHeight = header.offsetHeight;
   headerWidth = header.offsetWidth;
   size = { w: innerWidth, h: innerHeight, top: 0, fitTop: Math.ceil(measurement.querySelector('.site-header').offsetHeight + 16) };
   pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
-  if (mode === 'intro') nativeIntro.resize(introScrollRange(), progress);
   if (layoutChanged) {
     const grid = measurement.querySelector('.masonry-grid');
     const tiles = [...grid.children];
@@ -619,69 +590,43 @@ function handleWorldWheel(event) {
   living.clear();
   event.preventDefault();
   const factor = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? size.h : 1;
-  if (mode === 'intro') {
-    if (!event.ctrlKey && !event.metaKey) advanceIntro(event.deltaY * factor / introScrollRange(), { response: wheelResponse(event, performance.now()) });
-    return;
-  }
-  // Ignore only the remaining momentum of the gesture that completed the intro.
-  if (performance.now() < navigationReadyAt) { navigationReadyAt = performance.now() + 100; return; }
   if (mode === 'explore' && !event.ctrlKey && !event.metaKey && camera.z <= minimumZoom() * 1.005 && Math.abs(event.deltaY) > 0) considerDragHint(Math.abs(event.deltaY * factor));
   routeExploreWheel(event, performance.now());
 }
-// Let native wheel/trackpad deltas and their momentum reach the opening scroller.
-view.addEventListener('wheel', () => {
-  if (mode === 'intro' && !dialog.open) { living.clear(); stopIntro(); }
-}, { passive: true });
+view.addEventListener('wheel', handleWorldWheel, { passive: false });
 
 const points = new Map();
 let gesture = null;
 const pair = () => { const [a, b] = [...points.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, distance: Math.hypot(a.x - b.x, a.y - b.y) }; };
 function resetGesture() { points.clear(); gesture = null; flickTracker.reset(); delete view.dataset.dragging; }
 view.addEventListener('pointerdown', event => {
-  if (event.target.closest('a,.portfolio-theme-toggle') || event.button > 0 || dialog.open) return;
-  if (mode === 'intro' && event.pointerType === 'touch') {
-    stopIntro();
-    const point = { x: event.clientX, y: event.clientY };
-    points.set(event.pointerId, point);
-    if (!gesture) gesture = { start: point, last: point, startedMode: mode, moved: false, multi: false, native: true, pointerType: event.pointerType, item: event.target.closest('.world-item') };
-    else gesture.multi = gesture.moved = true;
-    return;
-  }
+  if (!overviewReady || event.target.closest('a,.portfolio-theme-toggle') || event.button > 0 || dialog.open) return;
   event.preventDefault();
   stopCamera();
-  if (mode === 'intro') stopIntro();
   const point = { x: event.clientX, y: event.clientY };
   flickTracker.reset(point, inputTime(event));
   points.set(event.pointerId, point);
   view.setPointerCapture(event.pointerId);
   if (points.size === 1) {
-    const hit = mode === 'explore' ? living.targetAt(point, true, event.pointerType === 'touch') : null;
-    gesture = { start: point, last: point, startedMode: mode, moved: false, multi: false, pointerType: event.pointerType, item: mode === 'explore' ? hit?.element : event.target.closest('.world-item') };
+    const hit = living.targetAt(point, true, event.pointerType === 'touch');
+    gesture = { start: point, last: point, moved: false, multi: false, pointerType: event.pointerType, item: hit?.element };
   }
   else if (gesture) { flickTracker.reset(); gesture.multi = gesture.moved = true; gesture.pair = pair(); }
 });
 view.addEventListener('pointermove', event => {
-  if (mode === 'explore' && !overviewReady) { if (event.cancelable) event.preventDefault(); return; }
+  if (!overviewReady) return;
   if (!points.has(event.pointerId) || !gesture) {
     if (!points.size && event.pointerType === 'mouse') living.pointer({x:event.clientX,y:event.clientY});
-    return;
-  }
-  if (gesture.native) {
-    const point = { x: event.clientX, y: event.clientY };
-    points.set(event.pointerId, point);
-    if (Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) > 6) gesture.moved = true;
-    gesture.last = point;
     return;
   }
   event.preventDefault();
   const point = { x: event.clientX, y: event.clientY };
   points.set(event.pointerId, point);
-  if (gesture.startedMode === 'intro' && mode === 'explore') { gesture.moved = true; gesture.last = point; return; }
   if (points.size >= 2) {
     const current = pair(), previous = gesture.pair || current;
     gesture.multi = gesture.moved = true;
     living.clear();
-    if (mode === 'explore' && current.distance >= 8 && previous.distance >= 8) {
+    if (current.distance >= 8 && previous.distance >= 8) {
       if (current.distance > previous.distance) markDragHintAction('zoom');
       if (current.distance < previous.distance && camera.z <= minimumZoom() * 1.005) showDragHint();
       const z = Math.max(minimumZoom(), Math.min(3, camera.z * current.distance / previous.distance));
@@ -697,20 +642,17 @@ view.addEventListener('pointermove', event => {
   if (Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) > 6) gesture.moved = true;
   if (gesture.moved) {
     living.clear();
-    if (mode === 'intro') advanceIntro((gesture.last.y - point.y) / introScrollRange(), { direct: true });
-    else {
-      preset = 'custom';
-      view.dataset.dragging = 'true';
-      if (camera.z <= minimumZoom() * 1.005 && Math.abs(point.y - gesture.last.y) > .1) considerDragHint(Math.abs(point.y - gesture.last.y));
-      markDragHintAction('drag');
-      moveCamera({ x: camera.x - (point.x - gesture.last.x) / camera.z, y: camera.y - (point.y - gesture.last.y) / camera.z, z: camera.z });
-    }
+    preset = 'custom';
+    view.dataset.dragging = 'true';
+    if (camera.z <= minimumZoom() * 1.005 && Math.abs(point.y - gesture.last.y) > .1) considerDragHint(Math.abs(point.y - gesture.last.y));
+    markDragHintAction('drag');
+    moveCamera({ x: camera.x - (point.x - gesture.last.x) / camera.z, y: camera.y - (point.y - gesture.last.y) / camera.z, z: camera.z });
   }
   gesture.last = point;
 });
 function releasePointer(event, cancelled = false) {
   if (!points.has(event.pointerId)) return;
-  if (cancelled) { living.clear(true); stopCamera(); stopIntro(); }
+  if (cancelled) { living.clear(true); stopCamera(); }
   const previous = gesture;
   const releaseTime = inputTime(event);
   if (!cancelled && previous && !previous.multi && Number.isFinite(event.clientX) && Number.isFinite(event.clientY) && (event.clientX !== previous.last.x || event.clientY !== previous.last.y)) flickTracker.sample({ x: event.clientX, y: event.clientY }, releaseTime);
@@ -724,13 +666,11 @@ function releasePointer(event, cancelled = false) {
     return;
   }
   resetGesture();
-  if (!cancelled && previous?.moved && !previous.native && !previous.multi && previous.pointerType !== 'mouse' && previous.startedMode === mode) {
-    if (mode === 'intro') startIntroGlide(-velocity.y / introScrollRange());
-    else startCameraGlide({ x: -velocity.x, y: -velocity.y });
+  if (!cancelled && previous?.moved && !previous.multi && previous.pointerType !== 'mouse') {
+    startCameraGlide({ x: -velocity.x, y: -velocity.y });
   }
   if (!cancelled && previous && !previous.moved && !previous.multi) {
     if (previous.item) {
-      const item = items.find(item => item.element === previous.item);
       openGallery(Number(previous.item.dataset.piece), Number(previous.item.dataset.photo), previous.item);
     } else living.clear();
   }
@@ -746,21 +686,24 @@ view.addEventListener('focusin', event => { const item = items.find(item => item
 view.addEventListener('focusout', event => { if (!event.relatedTarget?.closest('.world-item')) living.clear(); });
 view.addEventListener('dragstart', event => event.preventDefault());
 view.addEventListener('dblclick', event => {
-  if (mode === 'explore' && !overviewReady) { event.preventDefault(); return; }
+  if (!overviewReady) { event.preventDefault(); return; }
   if (mode === 'explore' && !event.target.closest('.world-item,a,.portfolio-theme-toggle')) { event.preventDefault(); zoom(1.8, { x: event.clientX, y: event.clientY }, true); }
 });
 view.addEventListener('click', event => {
-  if (mode === 'explore' && !overviewReady && !event.target.closest('a,.portfolio-theme-toggle')) { event.preventDefault(); return; }
+  if (!overviewReady && !event.target.closest('a,.portfolio-theme-toggle')) { event.preventDefault(); return; }
   const item = event.target.closest('.world-item');
   if (item) { event.preventDefault(); if (event.detail === 0) openGallery(Number(item.dataset.piece), Number(item.dataset.photo), item); }
 });
-function stopMotion() { resetGesture(); stopCamera(); stopIntro(); living.clear(true); }
+function stopMotion() { resetGesture(); stopCamera(); living.clear(true); }
 addEventListener('blur', stopMotion);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { stopMotion(); previewQueue.pause(); detailQueue.pause(); }
   else if (!dialog.open) { previewQueue.resume(); detailQueue.resume(); requestCameraPaint(); }
 });
-reduce.addEventListener('change', stopMotion);
+reduce.addEventListener('change', () => {
+  stopMotion();
+  if (reduce.matches && mode === 'intro') finishIntro();
+});
 
 let safariScale = 1;
 document.addEventListener('gesturestart', event => { if (!dialog.open) { stopCamera(); living.clear(); event.preventDefault(); safariScale = event.scale || 1; } }, { passive: false });
@@ -778,12 +721,7 @@ document.querySelector('.skip-link').addEventListener('click', event => {
 });
 addEventListener('keydown', event => {
   if (dialog.open || event.ctrlKey || event.metaKey || event.altKey || event.target.closest('.portfolio-theme-toggle')) return;
-  if (mode === 'explore' && !overviewReady) { if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','PageDown','PageUp',' ','End','Home','+','=','-','0'].includes(event.key)) event.preventDefault(); return; }
-  if (mode === 'intro') {
-    const amount = { ArrowDown: .065, ArrowUp: -.065, PageDown: .23, PageUp: -.23, ' ': .23, End: 1, Home: -1 }[event.key];
-    if (amount !== undefined) { event.preventDefault(); advanceIntro(amount); }
-    return;
-  }
+  if (!overviewReady) return;
   const direction = { ArrowLeft: [-120, 0], ArrowRight: [120, 0], ArrowUp: [0, -120], ArrowDown: [0, 120], PageDown: [0, (size.h - size.top) * .7], PageUp: [0, -(size.h - size.top) * .7] }[event.key];
   if (direction) { event.preventDefault(); preset = 'custom'; const origin = cameraInput === 'keys' && cameraTarget ? cameraTarget : camera; moveCamera({ x: origin.x + direction[0] / origin.z, y: origin.y + direction[1] / origin.z, z: origin.z }, true, 80, 'keys'); }
   else if (event.key === '+' || event.key === '=') { event.preventDefault(); zoom(1.35, pivot, true); }
@@ -795,35 +733,23 @@ addEventListener('keydown', event => {
 let gallery = null;
 function getGallery() {
   if (!gallery) gallery = mountGallery({ pieces, onOpen() {
-  stopIntro(); stopCamera(); living.clear(true);
-  nativeIntro.pause();
+  stopCamera(); living.clear(true);
   previewQueue.pause(); detailQueue.pause(); detailQueue.clear();
 }, onClose() {
-  nativeIntro.resume(progress);
   previewQueue.resume(); requestCameraPaint();
   if(pendingMeasure) {pendingMeasure=false;measure(Math.abs(innerWidth-layoutWidth)>1);}
   scheduleImageQuality();
 } });
   return gallery;
 }
-function openGallery(pieceIndex, photoIndex, trigger) { if (mode === 'explore' && !overviewReady) return; getGallery().open(pieceIndex, photoIndex, trigger); }
-function closeGallery() { gallery?.close(); }
+function openGallery(pieceIndex, photoIndex, trigger) { if (!overviewReady) return; getGallery().open(pieceIndex, photoIndex, trigger); }
 
-// Keep the header inside the native scroll hit area without changing its pose.
 view.prepend(header);
-view.append(scrollHint);
-const nativeIntro = createNativeIntroScroll({ view,
-  onChange(value) {
-    if (mode !== 'intro' || dialog.open) return;
-    stopIntro();
-    progress = targetProgress = value;
-    paintLayout(value);
-    if (value === 1) finishIntro();
-  },
-  onIdle: scheduleImageQuality
+replayButton.addEventListener('click', () => {
+  if (overviewReady) startIntro();
 });
-
 measure();
+startIntro();
 document.fonts.ready.then(() => measure(true));
 
 

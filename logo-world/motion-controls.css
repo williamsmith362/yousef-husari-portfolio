@@ -1,0 +1,70 @@
+.motion-entry {
+  display: inline-grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  width: 82px;
+  height: 82px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--ink) 30%, var(--paper));
+  border-radius: 4px;
+  background: var(--soft);
+  color: var(--ink);
+  font: 500 13px/1.16 var(--font);
+  text-align: center;
+  text-decoration: none;
+}
+.motion-entry:hover, .motion-entry:focus-visible { border-color: currentColor; }
+.motion-entry svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.45;
+}
+.world-controls {
+  position: fixed;
+  z-index: 55;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: max(18px, env(safe-area-inset-left));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+.world-controls-guide {
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink);
+  pointer-events: auto;
+}
+.world-gallery-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+}
+.world-zoom-guide { margin: 0 0 6px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.world-zoom-touch, .world-controls[data-playing="true"] .world-zoom-guide { display: none; }
+.world-replay { position: relative; flex: none; overflow: hidden; pointer-events: auto; }
+.world-controls[data-playing="true"] .world-replay-icon,
+.world-controls[data-playing="false"] .world-playing-icon { display: none; }
+.world-replay[aria-disabled="true"] { cursor: default; }
+.world-controls[data-playing="true"] .world-replay::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: currentColor;
+  transform: scaleX(var(--reveal-progress, 0));
+  transform-origin: left;
+  content: "";
+}
+@media (pointer: coarse), (max-width: 620px) {
+  .world-zoom-mouse { display: none; }
+  .world-zoom-touch { display: inline; }
+}
