@@ -21,7 +21,7 @@
 .focus-estimate:empty{display:none}
 .workbench-bottom{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 24px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
 .all-measurements{margin:24px 0 0;border-block:1px solid var(--line)}
-.all-measurements>summary{list-style:none;display:flex;align-items:center;gap:16px;cursor:pointer;font-size:14px;font-weight:600;padding:20px 0}
+.all-measurements>summary{list-style:none;display:flex;align-items:center;gap:16px;cursor:pointer;font-size:14px;font-weight:400;padding:20px 0}
 .all-measurements>summary::-webkit-details-marker{display:none}
 .all-measurements>summary span{margin-left:auto;font-size:12px;font-weight:400;color:var(--muted)}
 .all-measurements>summary:after{content:'+';font-size:20px;font-weight:400;color:var(--muted)}
@@ -30,7 +30,7 @@
 .workbench-dialog{width:min(620px,calc(100% - 32px));max-height:85vh;padding:28px;overflow-y:auto}
 .workbench-dialog::backdrop{background:#0009;backdrop-filter:blur(3px)}
 .workbench-dialog header{display:flex;justify-content:space-between;gap:24px;align-items:start;margin-bottom:16px}
-.workbench-dialog header h2{font:600 22px/1.35 var(--font);letter-spacing:-.4px;margin:0}
+.workbench-dialog header h2{font:400 22px/1.35 var(--font);letter-spacing:-.4px;margin:0}
 .workbench-dialog header button{font-size:25px;line-height:1;min-width:32px;min-height:32px;color:var(--muted)}
 .dialog-intro{font-size:14px;line-height:1.75;color:var(--muted);margin:0 0 24px}
 #allowancesContent .field-help{display:none}
@@ -88,7 +88,7 @@
 .waist-guide-dialog{width:min(900px,calc(100% - 32px))}
 .waist-guide-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
 .waist-guide-grid section{background:var(--soft);border:1px solid var(--line);border-radius:7px;padding:18px 12px}
-.waist-guide-grid h3{font:600 15px/1.4 var(--font);margin:0 8px 12px}
+.waist-guide-grid h3{font:400 15px/1.4 var(--font);margin:0 8px 12px}
 .waist-guide-grid svg{width:100%;height:auto;display:block}
 .waist-guide-grid svg text{font:12px var(--font);fill:var(--pattern-accent)}
 .waist-guide-grid svg .guide-note{font-size:11px;fill:var(--muted)}
@@ -158,13 +158,13 @@
   .shell:has(#draft:not([hidden])) .page-heading h1 {
     font-family: var(--font);
     font-size: clamp(1.875rem, 6.1vw, 2.75rem);
-    font-weight: 800;
+    font-weight: 300;
     line-height: 1.1;
     letter-spacing: -.035em;
   }
 
   .test-label {
-    font-weight: 700;
+    font-weight: 500;
     letter-spacing: .08em;
   }
 
@@ -176,7 +176,7 @@
   .steps button {
     align-items: center;
     color: var(--ink);
-    font-weight: 650;
+    font-weight: 450;
   }
 
   .steps button + button {
@@ -190,7 +190,7 @@
   .steps button[aria-current=step] {
     background: var(--ink);
     color: var(--paper);
-    font-weight: 750;
+    font-weight: 500;
   }
 
   .steps button[aria-current=step] .step-dot {
@@ -208,7 +208,7 @@
   .layout-details summary,
   .all-measurements > summary,
   .step-actions .button {
-    font-weight: 700;
+    font-weight: 500;
   }
 
   .field .field-label label {
@@ -229,7 +229,7 @@
   .segmented button {
     border: 0;
     color: var(--ink);
-    font-weight: 650;
+    font-weight: 450;
   }
 
   .segmented button + button {
@@ -275,7 +275,7 @@
   .popup-display button,
   .fabric-type-controls button {
     color: var(--ink);
-    font-weight: 650;
+    font-weight: 450;
   }
 
   .fabric-type-controls button[aria-pressed=true],
@@ -291,7 +291,7 @@
   select.under-select {
     border-color: var(--control-line);
     border-radius: 0;
-    font-weight: 600;
+    font-weight: 400;
   }
 
   input[aria-invalid=true]:not([type=checkbox]):not([type=hidden]) {
@@ -325,7 +325,7 @@
   .measure-table th,
   .fabric-caption,
   .calc-facts dd {
-    font-weight: 700;
+    font-weight: 500;
   }
 
   .fabric-total strong,
@@ -333,13 +333,13 @@
   dialog h2,
   .workbench-dialog header h2 {
     font-family: var(--font);
-    font-weight: 750;
+    font-weight: 500;
     letter-spacing: -.025em;
   }
 
   .current-pattern .panel-title,
   .current-pattern .dimension-value {
-    font-weight: 700;
+    font-weight: 500;
   }
 
   #overviewGraphic .current-pattern .outline {
@@ -415,7 +415,7 @@
   .current-pattern .dimension-value,
   .cutting-layout text {
     font-family: var(--font);
-    font-weight: 700;
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
   }
 
@@ -452,7 +452,7 @@
     background: var(--soft);
     color: var(--ink);
     font-size: .8125rem;
-    font-weight: 650;
+    font-weight: 450;
     white-space: nowrap;
   }
 
@@ -655,7 +655,7 @@
   cursor: pointer;
   list-style: none;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .measurement-picker > summary::-webkit-details-marker {
@@ -674,7 +674,7 @@
   margin-inline-start: auto;
   color: var(--muted);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 400;
   white-space: nowrap;
 }
 
@@ -688,7 +688,7 @@
   min-height: 36px;
   padding-inline: 4px;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 450;
 }
 
 .measurement-options {
@@ -779,14 +779,14 @@
 .leg-chart [data-leg-panel=back] .leg-panel-outline { fill: var(--back-panel, var(--paper)); }
 .leg-chart .leg-cut-band { fill: color-mix(in srgb, var(--pattern-accent) 28%, transparent); }
 .leg-chart .leg-cut-line { stroke: var(--pattern-accent); stroke-width: 1.2; stroke-dasharray: 4 3; }
-.leg-chart .leg-panel-title { font-weight: 700; fill: var(--ink); }
+.leg-chart .leg-panel-title { font-weight: 500; fill: var(--ink); }
 .leg-hit-point { fill: transparent; cursor: grab; }
 .leg-chart [data-leg-point]:active .leg-hit-point { cursor: grabbing; }
 .leg-handle { fill: var(--surface); stroke: var(--pattern-accent); stroke-width: 3; pointer-events: none; }
-.leg-chart .leg-point-name { fill: var(--ink); font-weight: 700; }
+.leg-chart .leg-point-name { fill: var(--ink); font-weight: 500; }
 .leg-point-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0; }
 .leg-point-fields fieldset { min-width: 0; margin: 0; padding: 8px; border: 1px solid var(--line); }
-.leg-point-fields legend { font-size: 14px; font-weight: 700; }
+.leg-point-fields legend { font-size: 14px; font-weight: 500; }
 .leg-point-fields label { display: block; font-size: 13px; }
 .leg-point-fields label + label { margin-top: 6px; }
 .leg-point-fields input[data-leg-input] { min-height: 42px; padding: 8px; font-size: 16px; }
@@ -795,7 +795,7 @@
 .pivot-notice { padding: 10px 16px; margin: 0; font-size: 13px; border-bottom: 1px solid var(--line); color: var(--error); }
 .pivot-controls { border-top: 1px solid var(--line); padding-top: 12px; margin: 16px 0; }
 .pivot-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
-.pivot-actions h3 { margin: 0; font-size: 15px; }
+.pivot-actions h3 { margin: 0; font-size: 15px; font-weight: 500; }
 .pivot-fields { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-top: 8px; }
 .pivot-controls label { min-width: 0; font-size: 13px; display: block; }
 .pivot-controls input, .pivot-controls select { min-width: 0; }
