@@ -304,7 +304,7 @@ function paintCamera() {
   updateHitTargets();
   updateHomeHeader();
   updateDragHint();
-  const showLight = mode === 'intro' ? progress > .45 : camera.z <= minimumZoom() * 1.12;
+  const showLight = mode === 'intro' ? progress > .70 : camera.z <= minimumZoom() * 1.12;
   if (showLight !== illuminated) {
     illuminated = showLight;
     view.toggleAttribute('data-illuminated', illuminated);

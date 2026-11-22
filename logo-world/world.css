@@ -49,17 +49,25 @@ html.gallery-open { overflow: hidden; }
   inset: 0;
   content: "";
   opacity: 0;
-  background: radial-gradient(ellipse at 50% 50%, #f0f0ee 0%, transparent 68%);
-  transition: opacity 1000ms ease;
+  background: radial-gradient(ellipse 76% 65% at 50% 50%, #c9c6c1 0%, #dcd8d3 38%, #f4f2ef 68%, transparent 100%);
+  transition: opacity 850ms ease;
   pointer-events: none;
 }
 [data-theme="midnight"] .world-viewport::before {
-  background: radial-gradient(ellipse at 50% 50%, #343434 0%, #232323 40%, transparent 72%);
+  background: radial-gradient(ellipse 76% 65% at 50% 50%, #686460 0%, #565350 34%, #343231 64%, transparent 100%);
 }
 .world-viewport[data-illuminated]::before { opacity: 1; }
 .world-viewport[data-mode="intro"]:not([data-progress]) { opacity: 0; }
+.world-item .cutout-window {
+  transform: translate(-50%, -50%) scale(1);
+  transition: transform 500ms cubic-bezier(.2,.65,.28,1);
+}
+.world-viewport[data-illuminated] .world-item .cutout-window {
+  transform: translate(-50%, -50%) scale(1.095);
+}
 @media (prefers-reduced-motion: reduce) {
-  .world-viewport::before { transition: none; }
+  .world-viewport::before,
+  .world-item .cutout-window { transition: none; }
 }
 
 /* Keep dark fabrics readable when the overview photos are at their smallest. */
