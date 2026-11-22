@@ -103,9 +103,11 @@ export function patternMeasurement(r,key,side){
 }
 
 // One scale for both panels and both axes, including focused detail views.
-export function patternView(r,{key=null,keys=null,unit='in',fractions=false,detail=false,seams=null,id='currentPattern',interactive=false}={}){
+export function patternView(r,{key=null,keys=null,unit='in',fractions=false,detail=false,seams=null,id='currentPattern',interactive=false,previewHidden=false}={}){
  if(!r?.valid)return '';
  const visibleRows=keys!==null?r.rows.filter(row=>keys.includes(row.key)):r.rows.filter(row=>key==='all'||row.key===key);
+ const selectedKeys=new Set(visibleRows.map(row=>row.key));
+ const dimensionRows=previewHidden?r.rows:visibleRows;
  const wide=keys!==null||key==='all';
  const width=wide?640:500,pad=wide?88:52,gap=64,top=64;
  const f=patternBounds(r,'front'),b=patternBounds(r,'back');
@@ -141,7 +143,8 @@ export function patternView(r,{key=null,keys=null,unit='in',fractions=false,deta
   const arrow=`M ${xy(gx,gy1)} L ${xy(gx,gy2)}`;
   const lx=origin+direction*(bounds.min+bounds.max)*s/2;
   let dimension='';
-  for(const {key,label} of visibleRows){
+  for(const {key,label} of dimensionRows){
+  const hidden=!selectedKeys.has(key);
   const m=patternMeasurement(r,key,side);
   if(m){
    const spacedFrontHeight=wide&&side==='front'&&m.vertical&&Object.hasOwn(frontHeightOffsets,key);
@@ -159,8 +162,8 @@ export function patternView(r,{key=null,keys=null,unit='in',fractions=false,deta
    const line=`M ${a.map(n).join(' ')} L ${c.map(n).join(' ')}`;
    const rotation=m.vertical?` transform="rotate(-90 ${n(tx)} ${n(ty)})"`:'';
    const labelWidth=Math.max(32,value.length*8+10);
-   const target=interactive?`<path class="dimension-hit-line${spacedFrontHeight?' dimension-hit-line-front-height':''}" d="${line}"/><rect class="dimension-hit-label" x="${n(tx-labelWidth/2)}" y="${n(ty-16)}" width="${labelWidth}" height="23"${rotation}/>`:'';
-   const control=interactive?` role="button" tabindex="0" aria-label="${side==='front'?'Front':'Back'} ${escapeHTML(label)}, ${value}"`:'';
+   const target=interactive&&!hidden?`<path class="dimension-hit-line${spacedFrontHeight?' dimension-hit-line-front-height':''}" d="${line}"/><rect class="dimension-hit-label" x="${n(tx-labelWidth/2)}" y="${n(ty-16)}" width="${labelWidth}" height="23"${rotation}/>`:'';
+   const control=hidden?' data-measurement-hidden aria-hidden="true"':interactive?` role="button" tabindex="0" aria-label="${side==='front'?'Front':'Back'} ${escapeHTML(label)}, ${value}"`:'';
    dimension+=`<g class="pattern-dimension" data-side="${side}" data-measurement="${key}" data-value="${m.value}"${control}><path class="dimension-extension" d="${extension}"/><path class="dimension-line" d="${line}" marker-start="url(#${id}Arrow)" marker-end="url(#${id}Arrow)"/><circle cx="${n(a[0])}" cy="${n(a[1])}" r="2.5"/><circle cx="${n(c[0])}" cy="${n(c[1])}" r="2.5"/>${target}<text class="dimension-value" x="${n(tx)}" y="${n(ty)}" text-anchor="middle"${rotation}>${value}</text></g>`;
   }
   }

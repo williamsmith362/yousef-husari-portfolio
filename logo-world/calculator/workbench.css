@@ -694,37 +694,76 @@
 .measurement-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
+  gap: 2px 6px;
   min-inline-size: 0;
   margin: 0;
-  padding: 0;
+  padding: 6px;
   border: 0;
-  background: var(--line);
 }
 
 .measurement-options label {
   cursor: pointer;
   min-width: 0;
   min-height: 44px;
-  padding: 6px 8px;
-  background: var(--surface);
-  font-size: 13px;
-}
-
-.measurement-options label:last-of-type:nth-of-type(odd) {
-  grid-column: 1 / -1;
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .measurement-options label span {
   overflow-wrap: anywhere;
 }
 
-.measurement-options label:has(input:checked) {
-  background: var(--soft);
-}
-
 .measurement-options input {
   flex: none;
+  margin: 0;
+}
+
+.measurement-options .is-measurement-highlight {
+  background: color-mix(in srgb, var(--pattern-accent) 10%, var(--surface));
+  box-shadow: inset 2px 0 var(--pattern-accent);
+}
+
+#measurementMatch {
+  margin-inline-start: auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--pattern-accent);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.measurement-picker[open] #measurementMatch,
+.measurement-picker:not([open]) summary:has(#measurementMatch:not([hidden])) #measurementCount,
+#overviewGraphic .pattern-dimension[data-measurement-hidden] {
+  display: none;
+}
+
+@media screen {
+  .pattern-stage[data-measurement-highlight] #overviewGraphic .pattern-dimension:not(.is-measurement-highlight) {
+    opacity: .3;
+  }
+
+  #overviewGraphic .pattern-dimension.is-measurement-highlight[data-measurement-hidden] {
+    display: inline;
+    pointer-events: none;
+  }
+
+  #overviewGraphic .pattern-dimension.is-measurement-highlight[data-measurement-hidden] .dimension-line {
+    stroke-dasharray: 4 3;
+  }
+
+  #overviewGraphic .pattern-dimension.is-measurement-highlight .dimension-line {
+    stroke: var(--ink);
+    stroke-width: 3;
+  }
+
+  #overviewGraphic .pattern-dimension.is-measurement-highlight .dimension-value {
+    fill: var(--ink);
+    stroke-width: 7;
+  }
 }
 
 .workbench-actions { display: flex; flex-wrap: wrap; gap: 0 16px; }

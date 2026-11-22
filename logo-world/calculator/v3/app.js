@@ -117,7 +117,7 @@ let measurementPickerOpen=false;
 const overviewRows=()=>result.rows.filter(row=>overviewKeys===null||overviewKeys.has(row.key));
 const overviewCount=rows=>`${rows.length} of ${result.rows.length} shown`;
 function overviewGraphic(rows){
- return patternView(result,{keys:rows.map(row=>row.key),seams:state.draft.seams,unit:state.unit,fractions:state.fractions,id:'overviewPattern',interactive:true});
+ return patternView(result,{keys:rows.map(row=>row.key),seams:state.draft.seams,unit:state.unit,fractions:state.fractions,id:'overviewPattern',interactive:true,previewHidden:true});
 }
 function measurementFocus(rows){
  const row=rows.length===1?rows[0]:null;
@@ -156,17 +156,17 @@ function render(){
    <div class="workbench-tools"><div class="pattern-legend"><span><i class="legend-stitch"></i>Stitch</span><span><i class="legend-cut"></i>Cut · seam allowance</span></div><div class="workbench-actions"><button type="button" class="workbench-link" data-open-leg-playground>Play around</button><button type="button" class="workbench-link" data-open-allowances>Seam allowances ↗</button></div></div>
    <div class="pattern-stage"><figure id="overviewGraphic">${overviewGraphic(rows)}</figure>
    <aside class="measurement-focus"><details class="measurement-picker" ${measurementPickerOpen?'open':''}>
-    <summary>Show measurements <span id="measurementCount">${overviewCount(rows)}</span></summary>
+    <summary>Show measurements <span id="measurementCount">${overviewCount(rows)}</span><span id="measurementMatch" hidden></span></summary>
     <div class="measurement-picker-actions"><button type="button" data-select-measurements="all">Select all</button><button type="button" data-select-measurements="none">Clear</button></div>
     <fieldset class="measurement-options"><legend class="sr-only">Measurements to show on the pattern</legend>
-     ${result.rows.map(row=>`<label><input type="checkbox" data-overview-measurement value="${row.key}" ${selected.has(row.key)?'checked':''}><span>${escapeHTML(row.label)}</span></label>`).join('')}
+     ${result.rows.map(row=>`<label data-measurement-option="${escapeHTML(row.key)}"><input type="checkbox" data-overview-measurement value="${row.key}" ${selected.has(row.key)?'checked':''}><span>${escapeHTML(row.label)}</span></label>`).join('')}
     </fieldset></details><div id="measurementFocus">${measurementFocus(rows)}</div></aside></div>
    <div class="workbench-bottom"><span>Shape and check curves before cutting.</span><button class="workbench-link" type="button" data-pattern-help>Help with this pattern ↗</button></div>
   </div><details class="all-measurements" ${allMeasurementsOpen?'open':''}><summary>All measurements <span>Full drafting table</span></summary><table class="measure-table interactive-results"><caption>Stitching-line dimensions · allowances shown separately on the diagram</caption><thead><tr><th>Measurement</th><th>Front</th><th>Back</th></tr></thead><tbody>${result.rows.map(r=>`<tr data-pattern-key="${r.key}"><td><button class="result-measure-button" type="button" data-pattern-key="${r.key}">${escapeHTML(r.label)}<span>↗</span></button></td><td>${fl(r.f)}</td><td>${fl(r.b)}</td></tr>`).join('')}</tbody></table></details>`;
   $('results').querySelector('.measurement-picker').addEventListener('toggle',e=>{measurementPickerOpen=e.target.open;});
   $('results').querySelector('.all-measurements').addEventListener('toggle',e=>{allMeasurementsOpen=e.target.open;});
-
  }
+ hoveredMeasurement=focusedMeasurement=null;
  $("draftReference").innerHTML='<p class="table-note">Lengths below the crotch are consecutive vertical sections. The sketch is a reference map, not a scaled cutting pattern. Waistband values measure the sloped stitching lines across the tops of the panels. The Waistband detail gives the starting allocations.</p>';
  renderFormulas();renderComparison();renderFabric();
  document.querySelectorAll('[data-popup-fractions]').forEach(b=>b.setAttribute('aria-pressed',String(state.fractions&&state.unit==='in')));
@@ -215,6 +215,7 @@ function updateOverview(){
  $('measurementCount').textContent=overviewCount(rows);
  $('overviewGraphic').innerHTML=overviewGraphic(rows);
  $('measurementFocus').innerHTML=measurementFocus(rows);
+ highlightOverviewMeasurement();
 }
 $('results').addEventListener('change',event=>{
  const checkbox=event.target.closest('[data-overview-measurement]');
@@ -226,6 +227,47 @@ $('results').addEventListener('change',event=>{
  updateOverview();
 });
 const overviewDimension='#overviewGraphic [role="button"][data-measurement]';
+const measurementTarget=`${overviewDimension}, .measurement-options [data-measurement-option]`;
+let hoveredMeasurement=null,focusedMeasurement=null;
+function overviewMeasurementKey(target){
+ const match=target?.closest?.(measurementTarget);
+ return match?.dataset.measurementOption??match?.dataset.measurement??null;
+}
+function highlightOverviewMeasurement(){
+ const stage=$('overviewGraphic')?.closest('.pattern-stage');
+ if(!stage)return;
+ const key=hoveredMeasurement??focusedMeasurement;
+ stage.toggleAttribute('data-measurement-highlight',key!==null);
+ for(const element of stage.querySelectorAll('[data-measurement-option],.pattern-dimension[data-measurement]')){
+  const elementKey=element.dataset.measurementOption??element.dataset.measurement;
+  element.classList.toggle('is-measurement-highlight',elementKey===key);
+ }
+ const match=$('measurementMatch');
+ const row=result.rows.find(row=>row.key===key);
+ match.textContent=row?.label??'';
+ match.hidden=!row;
+}
+function trackMeasurementPointer(event){
+ if(event.pointerType==='touch')return;
+ const from=overviewMeasurementKey(event.target);
+ const to=overviewMeasurementKey(event.relatedTarget);
+ if(from===to)return;
+ hoveredMeasurement=event.type==='pointerover'?from:to;
+ highlightOverviewMeasurement();
+}
+$('results').addEventListener('pointerover',trackMeasurementPointer);
+$('results').addEventListener('pointerout',trackMeasurementPointer);
+$('results').addEventListener('focusin',event=>{
+ if(!event.target.matches(':focus-visible'))return;
+ hoveredMeasurement=null;
+ focusedMeasurement=overviewMeasurementKey(event.target);
+ highlightOverviewMeasurement();
+});
+$('results').addEventListener('focusout',event=>{
+ if(overviewMeasurementKey(event.target)!==focusedMeasurement||focusedMeasurement===null)return;
+ focusedMeasurement=null;
+ highlightOverviewMeasurement();
+});
 $('results').addEventListener('keydown',event=>{
  if(event.key!=='Enter'&&event.key!==' ')return;
  const mark=event.target.closest(overviewDimension);
