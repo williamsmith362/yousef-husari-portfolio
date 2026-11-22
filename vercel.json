@@ -4,5 +4,24 @@
   "buildCommand": "",
   "installCommand": "",
   "outputDirectory": "logo-world",
-  "trailingSlash": true
+  "trailingSlash": true,
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "query",
+          "key": "view",
+          "value": "fancy"
+        }
+      ],
+      "destination": "/animated/",
+      "permanent": false
+    },
+    {
+      "source": "/simple/",
+      "destination": "/",
+      "permanent": false
+    }
+  ]
 }

@@ -8,3 +8,36 @@ body { display: block; }
 
 @media (hover:hover) { .photo-portfolio .piece .product-photo { transition:transform .38s cubic-bezier(.2,.7,.2,1); } .photo-portfolio .piece:hover .product-photo, .photo-portfolio .piece:focus-visible .product-photo { transform:scale(1.08); } .photo-portfolio .piece:hover .hover-caption, .photo-portfolio .piece:focus-visible .hover-caption { opacity:1; } }
 @media (prefers-reduced-motion:reduce) { .photo-portfolio .piece .product-photo { transition:none; } }
+
+.motion-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding-inline: 12px 15px;
+  border: 1px solid color-mix(in srgb, var(--ink) 24%, var(--paper));
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+}
+.motion-entry:hover, .motion-entry:focus-visible {
+  border-color: currentColor;
+}
+.motion-entry svg {
+  flex: none;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+.simple-header > .wordmark { max-width: 100%; }
+@media (max-width: 620px) {
+  .simple-header { row-gap: 10px; }
+  .simple-header nav {
+    height: auto;
+    min-height: 40px;
+    flex-wrap: wrap;
+  }
+}
