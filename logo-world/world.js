@@ -44,6 +44,7 @@ let overviewCamera = fitCamera(extent, size);
 let mode = 'intro';
 let progress = 0, introFrame = 0, introElapsed = 0, lastIntroTime = 0;
 let resettingIntro = false, illuminated = false;
+let signatureBounds = '';
 let cameraFrame = 0, resizeFrame = 0;
 let cameraTarget = null, cameraResponse = 80, lastCameraTime = 0, cameraGlideTime = 0;
 let cameraInput = null;
@@ -321,9 +322,15 @@ function paintCamera() {
     view.toggleAttribute('data-illuminated', illuminated);
   }
   if (showLight) {
-    const left = camera.x - pivot.x / camera.z;
-    const top = camera.y - pivot.y / camera.z;
-    signature.setAttribute('viewBox', [left, top, size.w / camera.z, size.h / camera.z].map(value => value.toFixed(2)).join(' '));
+    // During the reveal, the ink sits at the same projected destination as the photos.
+    const inkCamera = mode === 'intro' ? overviewCamera : camera;
+    const left = inkCamera.x - pivot.x / inkCamera.z;
+    const top = inkCamera.y - pivot.y / inkCamera.z;
+    const bounds = [left, top, size.w / inkCamera.z, size.h / inkCamera.z].map(value => value.toFixed(2)).join(' ');
+    if (bounds !== signatureBounds) {
+      signature.setAttribute('viewBox', bounds);
+      signatureBounds = bounds;
+    }
     for (const entry of signaturePaths) {
       const offset = mode === 'intro' ? 1 - penProgress(entry.stroke, progress) : 0;
       const dash = offset.toFixed(4);
