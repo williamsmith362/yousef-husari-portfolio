@@ -3,15 +3,13 @@ import { mountGallery } from './gallery.mjs?v=momentum-images-1';
 import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
 import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=raised-header-2';
 import { homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
-import { easeReveal, planReveal, placeRevealItem, revealCamera } from './world-reveal.mjs?v=3';
-import { makeSignatureStrokes, penProgress, photoInkTime } from './signature-motion.mjs';
-import { makeLogoLayout, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=signature-trace-1';
+import { easeReveal, planReveal, placeRevealItem, revealCamera, revealContraction } from './world-reveal.mjs?v=4';
+import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=edge-reveal-1';
 import { SCROLL_FEEL, inputTime, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=wave-load-2';
 
 const view = document.querySelector('.world-viewport');
 const plane = document.querySelector('.world-plane');
-const signature = document.querySelector('.world-signature');
 const measurement = document.querySelector('.world-measurement');
 const header = document.querySelector('.world-header');
 const dialog = document.querySelector('.world-gallery');
@@ -24,17 +22,8 @@ const replayFade = 220;
 const revealDuration = 6150;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
-const { projects, trace } = makeLogoLayout(pieces);
+const projects = makeProjects(pieces);
 const extent = getExtent(projects);
-const signatureStrokes = makeSignatureStrokes(trace, extent.r - extent.l);
-const signaturePaths = signatureStrokes.map(stroke => {
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path.setAttribute('d', stroke.d);
-  path.setAttribute('pathLength', '1');
-  path.setAttribute('vector-effect', 'non-scaling-stroke');
-  signature.append(path);
-  return { path, stroke, lastOffset: null };
-});
 const sourceCovers = Array.from(measurement.querySelectorAll('button.piece')).sort((a, b) => Number(a.dataset.piece) - Number(b.dataset.piece));
 const clamp01 = n => Math.max(0, Math.min(1, n));
 let size = { w: innerWidth, h: innerHeight, top: 0, fitTop: 139 };
@@ -44,7 +33,6 @@ let overviewCamera = fitCamera(extent, size);
 let mode = 'intro';
 let progress = 0, introFrame = 0, introElapsed = 0, lastIntroTime = 0;
 let resettingIntro = false, illuminated = false;
-let signatureBounds = '';
 let cameraFrame = 0, resizeFrame = 0;
 let cameraTarget = null, cameraResponse = 80, lastCameraTime = 0, cameraGlideTime = 0;
 let cameraInput = null;
@@ -61,9 +49,8 @@ let spatialGrid = null;
 const renderedItems = new Set();
 const candidateItems = new Set();
 let preset = 'home';
-let startingBoxes = [];
 let headerHeight = 115, headerWidth = 0, previousHeaderOpacity = -1;
-let paintFrame = 0, qualityTimer = 0, layoutWidth = 0;
+let paintFrame = 0, qualityTimer = 0;
 let headerAnchor = homeAnchor(size), pendingMeasure = false;
 let previewWarmProgress = 0;
 const previewQueue = createImageQueue({ concurrency: navigator.connection?.saveData ? 3 : innerWidth < 620 ? 6 : 8 });
@@ -84,8 +71,7 @@ const items = projects.flatMap(project => project.items.map(item => {
   imageElement.dataset.imageReady = 'false';
   imageElement.removeAttribute('srcset');
   plane.append(element);
-  const inkTime = photoInkTime(signatureStrokes, project.x + item.x + item.w / 2, project.y + item.y + item.h / 2);
-  return { inkTime, imageElement, previewElement: null, imageLevel: null, previewRetryAt: 0, previewPriority: Infinity, detailUsedAt: 0, frame: element.querySelector('.product-photo'), ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
+  return { lateEntry: 0, imageElement, previewElement: null, imageLevel: null, previewRetryAt: 0, previewPriority: Infinity, detailUsedAt: 0, frame: element.querySelector('.product-photo'), ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, active: false };
 }));
 
 const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && overviewReady && !dialog.open && !cameraFrame, reduced: () => reduce.matches, onDetail: scheduleImageQuality, reservedArea: BOARD_HEADER_AREA });
@@ -206,7 +192,11 @@ function requestPreview(item, priority) {
   previewQueue.request(item, '/previews/' + item.image.file + '.webp', {
     priority,
     ready(image) {
-      item.previewElement = replaceDecodedImage(item.imageElement, image);
+      if (mode === 'intro' && progress > item.revealStart.appear) {
+        // Give a late preview an entrance of its own from the same edge.
+        item.lateEntry = Math.min(progress, .81);
+      }
+      item.previewElement = replaceDecodedImage(item.imageElement, image, { fade: mode !== 'intro' });
       item.imageElement = item.previewElement;
       item.imageLevel = 'preview';
       if (item.visible) scheduleImageQuality();
@@ -223,8 +213,8 @@ function warmPreviews(value) {
   if (ahead <= previewWarmProgress) return;
   previewWarmProgress = ahead;
   for (const item of items) {
-    const { appear } = item.revealStart;
-    if (appear <= ahead) requestPreview(item, 12 + Math.floor(appear * 32));
+    const { appear, lead } = item.revealStart;
+    if (appear <= ahead) requestPreview(item, lead ? -2 : 12 + Math.floor(appear * 32));
   }
 }
 
@@ -282,7 +272,7 @@ function updateHitTargets() {
   }
   for (const item of candidates) {
     const box=screenBox(item,camera,pivot);
-    const rendered=item.alpha>.001 && inViewport(box,size,96);
+    const rendered = item.active && inViewport(box, size, 96);
     if(item.rendered!==rendered) {item.element.hidden=!rendered;item.rendered=rendered;}
     if (rendered) {
       if (!item.imageLevel && item.previewPriority >= 4) {
@@ -295,12 +285,10 @@ function updateHitTargets() {
     }
     if (rendered) renderedItems.add(item); else renderedItems.delete(item);
     if(rendered && item.layoutDirty) {
-      const opacity=item.alpha.toFixed(4);
-      if(item.lastOpacity!==opacity) {item.element.style.opacity=opacity;item.lastOpacity=opacity;}
       item.element.style.transform='translate('+item.x.toFixed(3)+'px,'+item.y.toFixed(3)+'px) scale('+(item.width/item.w).toFixed(6)+')';
       item.layoutDirty=false;
     }
-    const visible = mode === 'explore' && item.alpha > .3 && inViewport(box, size);
+    const visible = mode === 'explore' && item.active && inViewport(box, size);
     if (item.visible !== visible) {
       item.visible = visible;
       item.element.setAttribute('aria-hidden', String(!visible));
@@ -321,24 +309,6 @@ function paintCamera() {
     illuminated = showLight;
     view.toggleAttribute('data-illuminated', illuminated);
   }
-  if (showLight) {
-    // During the reveal, the ink sits at the same projected destination as the photos.
-    const inkCamera = mode === 'intro' ? overviewCamera : camera;
-    const left = inkCamera.x - pivot.x / inkCamera.z;
-    const top = inkCamera.y - pivot.y / inkCamera.z;
-    const bounds = [left, top, size.w / inkCamera.z, size.h / inkCamera.z].map(value => value.toFixed(2)).join(' ');
-    if (bounds !== signatureBounds) {
-      signature.setAttribute('viewBox', bounds);
-      signatureBounds = bounds;
-    }
-    for (const entry of signaturePaths) {
-      const offset = mode === 'intro' ? 1 - penProgress(entry.stroke, progress) : 0;
-      const dash = offset.toFixed(4);
-      if (dash === entry.lastOffset) continue;
-      entry.path.style.strokeDashoffset = dash;
-      entry.lastOffset = dash;
-    }
-  }
   if (overviewReady) scheduleImageQuality();
 }
 
@@ -348,8 +318,9 @@ function paintLayout(value) {
     camera = revealCamera(value, pivot, overviewCamera);
     warmPreviews(value);
   }
+  const contraction = settled ? 1 : revealContraction(value);
   for (const item of items) {
-    placeRevealItem(item, value, camera, pivot, settled);
+    placeRevealItem(item, value, contraction, camera, settled);
     item.layoutDirty = true;
   }
   view.dataset.progress = value.toFixed(5);
@@ -384,6 +355,7 @@ function openIntro() {
   mode = 'intro';
   view.dataset.mode = mode;
   view.style.opacity = '0';
+  for (const item of items) item.lateEntry = 0;
   paintLayout(0);
 }
 
@@ -495,10 +467,9 @@ function showAll() {
   moveCamera(overviewCamera, true);
 }
 
-function measure(remeasureLayout = true) {
+function measure() {
   if(dialog.open) {pendingMeasure=true;return;}
-  const layoutChanged = remeasureLayout || !startingBoxes.length;
-  const widthChanged = Math.abs(innerWidth-layoutWidth) > 1 || !startingBoxes.length;
+  const widthChanged = Math.abs(innerWidth - size.w) > 1;
   const previousPivot = pivot;
   living.clear(true);
   if (widthChanged) stopCamera();
@@ -507,25 +478,10 @@ function measure(remeasureLayout = true) {
   size = { w: innerWidth, h: innerHeight, top: 0, fitTop: Math.ceil(measurement.querySelector('.site-header').offsetHeight + 16) };
   pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
   overviewCamera = fitCamera(extent, size);
-  overviewCamera.z = Math.max(.001, overviewCamera.z * 1.14);
-  if (layoutChanged) {
-    const grid = measurement.querySelector('.masonry-grid');
-    const tiles = [...grid.children];
-    // Batch reads before writes so each tile does not force another layout.
-    const rows = tiles.map(tile => Math.ceil(tile.querySelector('.product-photo').getBoundingClientRect().height + parseFloat(getComputedStyle(tile).paddingBottom)));
-    tiles.forEach((tile, index) => { tile.style.gridRowEnd = 'span ' + rows[index]; });
-    grid.dataset.masonry = 'true';
-    startingBoxes = sourceCovers.map(tile => {
-      const box = tile.querySelector('.product-photo').getBoundingClientRect();
-      return { x: box.left - size.w / 2, y: box.top, w: box.width, h: box.height };
-    });
-    headerAnchor = homeAnchor(size);
-    layoutWidth = innerWidth;
-  }
+  overviewCamera.z = Math.max(.001, overviewCamera.z * 1.23);
+  headerAnchor = homeAnchor(size);
   previewWarmProgress = 0;
-  for (const item of items) {
-    item.revealStart = planReveal(item, startingBoxes[item.project.index], pivot, size, overviewCamera);
-  }
+  planReveal(items, extent, size, overviewCamera);
   if (mode === 'explore') {
     if (!widthChanged) {
       const shift = pivot.y - previousPivot.y;
@@ -541,12 +497,11 @@ function measure(remeasureLayout = true) {
       if (cameraTarget) cameraTarget = clampCamera(cameraTarget, extent, size, minimumZoom());
     }
   }
-  if (mode === 'explore' && !layoutChanged) paintCamera();
+  if (mode === 'explore') paintCamera();
   else paintLayout(progress);
-  if (layoutChanged) refreshImageQuality();
 }
 
-addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => measure(Math.abs(innerWidth - layoutWidth) > 1)); });
+addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(measure); });
 function wheelInput(event, time = performance.now()) {
   return { deltaX: event.deltaX, deltaY: event.deltaY, deltaMode: event.deltaMode, shiftKey: event.shiftKey, clientX: event.clientX, clientY: event.clientY, time };
 }
@@ -778,7 +733,7 @@ function getGallery() {
   previewQueue.pause(); detailQueue.pause(); detailQueue.clear();
 }, onClose() {
   previewQueue.resume(); requestCameraPaint();
-  if(pendingMeasure) {pendingMeasure=false;measure(Math.abs(innerWidth-layoutWidth)>1);}
+  if(pendingMeasure) {pendingMeasure=false;measure();}
   scheduleImageQuality();
 } });
   return gallery;
@@ -792,9 +747,8 @@ replayButton.addEventListener('click', () => {
 measure();
 startIntro();
 document.fonts.ready.then(() => {
-  // The opening grid uses image-only boxes with a fixed header line height.
   // Keep the camera framing stable if the webfont finishes during a reveal.
-  if (overviewReady) measure(true);
+  if (overviewReady) measure();
 });
 
 

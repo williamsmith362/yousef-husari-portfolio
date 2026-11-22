@@ -25,7 +25,7 @@ function collides(a, b) {
 
 // Keep each project together while following the original pen strokes closely.
 // Small side offsets preserve a natural arrangement without blurring the logo.
-export function makeLogoLayout(pieces) {
+export function makeLogoProjects(pieces) {
   // New projects gradually widen the strokes while keeping the traced logo.
   const strokeGrowth = 1 + .8 * (1 - Math.exp(-Math.max(0, pieces.length - 47) / 45));
   const establishedSeeds = new Map(pieces.filter(piece => Number(piece.id) < 49).map((piece, index) => [piece.id, index]));
@@ -122,17 +122,11 @@ export function makeLogoLayout(pieces) {
 
   const cover = finalProjects[0].items[0];
   const offsetX = cover.x + cover.w / 2, offsetY = cover.y + cover.h / 2 - 340;
-  const projects = finalProjects.map(project => {
+  return finalProjects.map(project => {
     const positions = project.items.map(item => ({ ...item, x: item.x - offsetX, y: item.y - offsetY }));
     const x = Math.min(...positions.map(item => item.x)), y = Math.min(...positions.map(item => item.y));
     const w = Math.max(...positions.map(item => item.x + item.w)) - x;
     const h = Math.max(...positions.map(item => item.y + item.h)) - y;
     return { piece: project.piece, index: project.index, x, y, w, h, items: positions.map(item => ({ ...item, x: item.x - x, y: item.y - y })) };
   });
-  const trace = LOGO_PATHS.map(points => points.map(([x, y]) => [x * scale - offsetX, y * scale - offsetY]));
-  return { projects, trace };
-}
-
-export function makeLogoProjects(pieces) {
-  return makeLogoLayout(pieces).projects;
 }

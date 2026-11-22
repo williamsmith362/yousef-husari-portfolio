@@ -1,6 +1,7 @@
 const clamp = value => Math.max(0, Math.min(1, value));
 const mix = (from, to, weight) => from + (to - from) * weight;
 const phase = (start, end, progress) => clamp((progress - start) / (end - start));
+const smooth = t => t * t * (3 - 2 * t);
 
 export function easeReveal(progress) {
   const t = clamp(progress);
@@ -8,7 +9,7 @@ export function easeReveal(progress) {
 }
 
 export function revealCamera(progress, pivot, overview) {
-  const travel = easeReveal(phase(.04, .94, progress));
+  const travel = easeReveal(phase(.06, .93, progress));
   return {
     x: overview.x * travel,
     y: mix(pivot.y, overview.y, travel),
@@ -16,67 +17,83 @@ export function revealCamera(progress, pivot, overview) {
   };
 }
 
-export function planReveal(item, box, pivot, size, overview) {
-  const cover = item.photoIndex === 0;
-  const openingCover = cover && box.y < size.h + 28;
-  const endX = item.project.x + item.xLocal;
-  const endY = item.project.y + item.yLocal;
-  const toX = (endX + item.w / 2 - overview.x) * overview.z;
-  const toY = (endY + item.h / 2 - overview.y) * overview.z;
-  const sweep = .66 * clamp(.5 + toX / size.w) + .34 * clamp(.5 + toY / size.h);
+export function planReveal(items, extent, size, overview) {
+  const halfWidth = (extent.r - extent.l) / 2;
+  const halfHeight = (extent.b - extent.t) / 2;
+  const routes = items.map(item => {
+    const endX = item.project.x + item.xLocal;
+    const endY = item.project.y + item.yLocal;
+    const centerX = endX + item.w / 2 - overview.x;
+    const centerY = endY + item.h / 2 - overview.y;
+    const x = centerX / halfWidth;
+    const y = centerY / halfHeight;
+    const horizontal = Math.abs(x) >= Math.abs(y);
+    const primary = horizontal ? x : y;
+    const cross = horizontal ? y : x;
+    const direction = primary < 0 ? -1 : 1;
+    const edge = horizontal ? (direction < 0 ? 0 : 1) : (direction < 0 ? 2 : 3);
+    return { item, endX, endY, toX: centerX * overview.z, toY: centerY * overview.z,
+      horizontal, direction, edge, reach: clamp(Math.abs(primary)), cross: clamp(Math.abs(cross)) };
+  });
 
-  // The first covers hold their real grid positions. Supporting views unfold
-  // from their own cover, including projects that start below the fold.
-  const side = item.photoIndex % 2 ? 1 : -1;
-  const layer = Math.floor(item.photoIndex / 2);
-  const originX = box.x + box.w / 2 + (cover ? 0 : side * box.w * (.26 + layer * .035));
-  const originY = box.y + box.h / 2 + (cover ? 0 : box.h * (layer * .07 - .06));
-  const offscreen = openingCover ? 0 : clamp((originY - size.h * .62) / size.h);
-  const fold = size.h * .76;
-  const foldedY = openingCover ? originY : Math.min(originY, fold) +
-    Math.log1p(Math.max(0, originY - fold) / size.h) * size.h * .10;
-  const fromX = mix(originX, toX + side * size.w * .17, offscreen * .68);
-  const fromY = mix(foldedY - pivot.y, toY + side * size.h * .13, offscreen * .86);
-  const fromWidth = box.w * (cover ? 1 : .46);
-  const widthRatio = Math.log(item.w * overview.z / fromWidth);
-  const firstExposure = (cover ? .13 : .20) + sweep * .30 + Math.min(.07, layer * .012);
-  const land = Math.min(.985, item.inkTime + .058);
-  const appear = openingCover ? 0 : Math.min(land - .23, Math.max(firstExposure, item.inkTime - .38));
-  const dx = toX - fromX;
-  const dy = toY - fromY;
-  const distance = Math.max(1, Math.hypot(dx, dy));
-  const bend = Math.min(38, distance * .13) * side;
+  // Start with a cover at each edge. The outer groups lead and the inner
+  // groups and their supporting views follow into the same composition.
+  const covers = new Map();
+  for (const route of routes) {
+    if (!route.item.photoIndex && !covers.has(route.edge)) covers.set(route.edge, route);
+  }
+  for (const route of routes) {
+    const { item, horizontal, direction, edge, reach, cross, toX, toY } = route;
+    const lead = covers.get(edge) === route;
+    const cover = item.photoIndex === 0;
+    const outer = 1 - reach;
+    const step = edge * .013;
+    const follow = cover ? 0 : .13 + Math.min(.12, (item.photoIndex - 1) * .014);
+    const appear = lead ? .012 + step : .085 + step + .13 * outer + .045 * cross + follow;
+    const land = lead ? .77 + step : .79 + .10 * outer + .027 * cross + .042 * Number(!cover);
+    const displayWidth = Math.min(size.w, size.h);
+    const entryWidth = lead ? Math.min(154, displayWidth * .265) :
+      Math.min(126, displayWidth * (cover ? .192 : .129)) * (.88 + .12 * reach);
+    const entryHeight = entryWidth * item.h / item.w;
+    const startX = horizontal ? direction * (size.w / 2 + entryWidth / 2 + 5) : toX * 1.28;
+    const startY = horizontal ? toY * 1.28 : direction * (size.h / 2 + entryHeight / 2 + 5);
 
-  return {
-    openingCover, fromX, fromY, fromWidth, widthRatio, toX, toY, endX, endY,
-    appear, land, bendX: -dy / distance * bend, bendY: dx / distance * bend
-  };
+    item.revealStart = {
+      endX: route.endX, endY: route.endY, toX, toY, startX, startY, horizontal,
+      entryWidth, logWidthChange: Math.log(item.w * overview.z / entryWidth), appear, land, lead
+    };
+  }
 }
 
-export function placeRevealItem(item, progress, camera, pivot, settled = false) {
+export function revealContraction(progress) {
+  return easeReveal(phase(.10, .89, progress));
+}
+
+export function placeRevealItem(item, progress, contraction, camera, settled = false) {
   const route = item.revealStart;
   if (settled) {
     item.x = route.endX;
     item.y = route.endY;
     item.width = item.w;
     item.height = item.h;
-    item.alpha = 1;
+    item.active = true;
     return;
   }
 
-  const departure = route.openingCover ? .04 : Math.max(.05, route.appear - .07);
-  const travel = easeReveal(phase(departure, route.land, progress));
-  const contraction = easeReveal(phase(.04, .86, progress));
-  const arc = 4 * travel * (1 - travel);
-  const nearScale = 1 - .24 * contraction;
-  const screenX = mix(route.fromX * nearScale, route.toX, travel) + route.bendX * arc;
-  const screenY = mix(route.fromY * nearScale, route.toY, travel) + route.bendY * arc;
-  const sizeTime = route.openingCover ? mix(contraction, travel, .28) : mix(contraction, travel, .63);
-  const screenWidth = route.fromWidth * Math.exp(route.widthRatio * sizeTime);
+  const departure = Math.max(route.appear, item.lateEntry);
+  item.active = Boolean(item.imageLevel) && progress >= departure;
+  if (!item.active) return;
+  const arrival = Math.max(route.land, departure + .18);
+  const time = phase(departure, arrival, progress);
+  const travel = smooth(time);
+  const crossTravel = easeReveal(time);
+  const screenX = mix(route.startX, route.toX, route.horizontal ? travel : crossTravel);
+  const screenY = mix(route.startY, route.toY, route.horizontal ? crossTravel : travel);
+  const sizeTime = mix(contraction, crossTravel, route.lead ? .42 : .28);
+  const screenWidth = route.entryWidth * Math.exp(route.logWidthChange * sizeTime);
 
   item.width = screenWidth / camera.z;
   item.height = item.width * item.h / item.w;
   item.x = camera.x + screenX / camera.z - item.width / 2;
   item.y = camera.y + screenY / camera.z - item.height / 2;
-  item.alpha = route.openingCover ? 1 : easeReveal(phase(route.appear, route.appear + .19, progress));
 }
