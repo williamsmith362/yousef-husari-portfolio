@@ -2,7 +2,8 @@ import { photoFrame, EMPTY_IMAGE } from './photos.mjs?v=momentum-images-1';
 import { mountGallery } from './gallery.mjs?v=momentum-images-1';
 import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
 import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=raised-header-2';
-import { revealCamera, homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
+import { homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
+import { easeReveal, planReveal, placeRevealItem, revealCamera } from './world-reveal.mjs';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=hoodie-growth-1';
 import { SCROLL_FEEL, inputTime, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=wave-load-2';
@@ -17,21 +18,21 @@ const dragHint = document.querySelector('.world-drag-hint');
 const controls = document.querySelector('.world-controls');
 const replayButton = controls.querySelector('.world-replay');
 const replayLabel = replayButton.querySelector('.world-replay-label');
-const openingHold = 450;
-const revealDuration = 5200;
+const replayFade = 220;
+const revealDuration = 6150;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
 const projects = makeProjects(pieces);
 const extent = getExtent(projects);
 const sourceCovers = Array.from(measurement.querySelectorAll('button.piece')).sort((a, b) => Number(a.dataset.piece) - Number(b.dataset.piece));
 const clamp01 = n => Math.max(0, Math.min(1, n));
-const smooth = n => { const t = clamp01(n); return t * t * (3 - 2 * t); };
-const mix = (a, b, t) => a + (b - a) * t;
 let size = { w: innerWidth, h: innerHeight, top: 0, fitTop: 139 };
 let pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
 let camera = { x: 0, y: pivot.y, z: 1 };
+let overviewCamera = fitCamera(extent, size);
 let mode = 'intro';
 let progress = 0, introFrame = 0, introElapsed = 0, lastIntroTime = 0;
+let resettingIntro = false, illuminated = false;
 let cameraFrame = 0, resizeFrame = 0;
 let cameraTarget = null, cameraResponse = 80, lastCameraTime = 0, cameraGlideTime = 0;
 let cameraInput = null;
@@ -71,12 +72,12 @@ const items = projects.flatMap(project => project.items.map(item => {
   imageElement.dataset.imageReady = 'false';
   imageElement.removeAttribute('srcset');
   plane.append(element);
-  return { imageElement, previewElement: null, imageLevel: null, previewRetryAt: 0, detailUsedAt: 0, frame: element.querySelector('.product-photo'), ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
+  return { imageElement, previewElement: null, imageLevel: null, previewRetryAt: 0, previewPriority: Infinity, detailUsedAt: 0, frame: element.querySelector('.product-photo'), ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
 }));
 
 const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && overviewReady && !dialog.open && !cameraFrame, reduced: () => reduce.matches, onDetail: scheduleImageQuality, reservedArea: BOARD_HEADER_AREA });
 
-function minimumZoom() { return fitCamera(extent, size).z; }
+function minimumZoom() { return overviewCamera.z; }
 function finishDragHint() {
   dragHintActive = false;
   dragHint?.classList.remove('is-visible');
@@ -186,36 +187,31 @@ function requestCameraPaint() {
   if (!paintFrame) paintFrame = requestAnimationFrame(() => { paintFrame = 0; paintCamera(); });
 }
 
-function requestPreview(item, priority = 50) {
-  if (item.imageLevel || performance.now() < item.previewRetryAt) return;
+function requestPreview(item, priority) {
+  if (item.imageLevel || priority >= item.previewPriority || performance.now() < item.previewRetryAt) return;
+  item.previewPriority = priority;
   previewQueue.request(item, '/previews/' + item.image.file + '.webp', {
-    priority, wanted: () => !dialog.open,
+    priority,
     ready(image) {
       item.previewElement = replaceDecodedImage(item.imageElement, image);
-      item.imageElement = item.previewElement; item.imageLevel = 'preview';
+      item.imageElement = item.previewElement;
+      item.imageLevel = 'preview';
       if (item.visible) scheduleImageQuality();
     },
-    error() { item.previewRetryAt = performance.now() + 5000; }
+    error() {
+      item.previewPriority = Infinity;
+      item.previewRetryAt = performance.now() + 5000;
+    }
   });
 }
 
 function warmPreviews(value) {
-  // Prepare the next part of the reveal, rather than decoding the whole board.
-  const ahead = Math.min(1, (Math.floor(value * 10) + 2) / 10);
+  const ahead = Math.min(1, Math.floor(value * 16) / 16 + .25);
   if (ahead <= previewWarmProgress) return;
   previewWarmProgress = ahead;
-  const future = revealCamera(ahead, pivot, fitCamera(extent, size));
   for (const item of items) {
-    if (item.imageLevel) continue;
-    const start = item.revealStart;
-    if (item.photoIndex && ahead <= .16 + start.phase * 2 + item.photoIndex * .005) continue;
-    const width = mix(start.width, item.w, ahead);
-    const box = screenBox({
-      x: mix(start.x, item.project.x + item.xLocal, ahead),
-      y: mix(start.y, item.project.y + item.yLocal, ahead),
-      width, height: width * item.h / item.w
-    }, future, pivot);
-    if (inViewport(box, size, 140)) requestPreview(item, 20 + item.photoIndex);
+    const { appear } = item.revealStart;
+    if (appear <= ahead) requestPreview(item, 12 + Math.floor(appear * 32));
   }
 }
 
@@ -238,14 +234,14 @@ function trimDetailImages() {
 }
 
 function refreshImageQuality() {
-  if (dialog.open || cameraFrame || introFrame) return;
+  if (dialog.open || mode !== 'explore' || !overviewReady || cameraFrame || introFrame) return;
   if (points.size) { scheduleImageQuality(); return; }
   detailQueue.resume();
   for (const item of items) {
     if (!needsDetail(item) || item.imageLevel !== 'preview') continue;
     detailQueue.request(item, '/pieces/' + item.image.file + '.webp', {
       priority: Math.max(1,1000-Math.max(item.width,item.height)*camera.z),
-      wanted: () => !dialog.open && needsDetail(item) && !cameraFrame && !introFrame && !points.size,
+      wanted: () => !dialog.open && overviewReady && needsDetail(item) && !cameraFrame && !points.size,
       ready(image) {
         item.imageElement = replaceDecodedImage(item.imageElement, image, { fade: false });
         item.imageLevel = 'full'; item.detailUsedAt = performance.now();
@@ -276,9 +272,13 @@ function updateHitTargets() {
     const rendered=item.alpha>.001 && inViewport(box,size,96);
     if(item.rendered!==rendered) {item.element.hidden=!rendered;item.rendered=rendered;}
     if (rendered) {
-      const priority = item.project.index === 0 && item.photoIndex === 0 ? -1 : (item.photoIndex ? 2 : 0) + Math.hypot(box.x+box.w/2-pivot.x,box.y+box.h/2-pivot.y)/Math.max(size.w,size.h);
-      requestPreview(item, priority);
-      if (item.imageLevel === 'full') item.detailUsedAt = performance.now();
+      if (!item.imageLevel && item.previewPriority >= 4) {
+        const distance = Math.abs(box.x + box.w / 2 - pivot.x) + Math.abs(box.y + box.h / 2 - pivot.y);
+        const priority = item.project.index === 0 && !item.photoIndex
+          ? -1 : (item.photoIndex ? 2 : 0) + Math.min(1, distance / Math.max(size.w, size.h));
+        requestPreview(item, priority);
+      }
+      if (item.imageLevel === 'full' && overviewReady) item.detailUsedAt = performance.now();
     }
     if (rendered) renderedItems.add(item); else renderedItems.delete(item);
     if(rendered && item.layoutDirty) {
@@ -287,7 +287,7 @@ function updateHitTargets() {
       item.element.style.transform='translate('+item.x.toFixed(3)+'px,'+item.y.toFixed(3)+'px) scale('+(item.width/item.w).toFixed(6)+')';
       item.layoutDirty=false;
     }
-    const visible = item.alpha>.3 && inViewport(box,size);
+    const visible = mode === 'explore' && item.alpha > .3 && inViewport(box, size);
     if (item.visible !== visible) {
       item.visible = visible;
       item.element.setAttribute('aria-hidden', String(!visible));
@@ -303,28 +303,23 @@ function paintCamera() {
   updateHitTargets();
   updateHomeHeader();
   updateDragHint();
-  scheduleImageQuality();
+  const showLight = mode === 'intro' ? progress > .62 : camera.z <= minimumZoom() * 1.12;
+  if (showLight !== illuminated) {
+    illuminated = showLight;
+    view.toggleAttribute('data-illuminated', illuminated);
+  }
+  if (overviewReady) scheduleImageQuality();
 }
 
 function paintLayout(value) {
-  const spread = value;
-  if (value > .08) warmPreviews(value);
-  if (value > .55) living.warm();
-  for (const item of items) {
-    const start = startingBoxes[item.project.index];
-    const isCover = item.photoIndex === 0;
-    const from = item.revealStart;
-    item.x = mix(from.x, item.project.x + item.xLocal, spread);
-    item.y = mix(from.y, item.project.y + item.yLocal, spread);
-    item.width = mix(from.width, item.w, spread);
-    item.height = item.width * item.h / item.w;
-    item.alpha = isCover
-      ? (start.y < size.h + 100 ? 1 : smooth((value - .08 - from.phase) / .36))
-      : smooth((value - .16 - from.phase * 2 - item.photoIndex * .005) / .34);
-    item.layoutDirty=true;
+  const settled = mode === 'explore';
+  if (!settled) {
+    camera = revealCamera(value, pivot, overviewCamera);
+    warmPreviews(value);
   }
-  if (mode === 'intro') {
-    camera = revealCamera(spread, pivot, fitCamera(extent, size));
+  for (const item of items) {
+    placeRevealItem(item, value, camera, pivot, settled);
+    item.layoutDirty = true;
   }
   view.dataset.progress = value.toFixed(5);
   paintCamera();
@@ -333,27 +328,49 @@ function paintLayout(value) {
 function finishIntro() {
   cancelAnimationFrame(introFrame);
   introFrame = 0;
+  resettingIntro = false;
   progress = 1;
   mode = 'explore';
   preset = 'all';
-  camera = fitCamera(extent, size);
+  camera = { ...overviewCamera };
+  view.dataset.mode = mode;
+  view.style.removeProperty('opacity');
+  spatialGrid = null;
   paintLayout(1);
   buildSpatialGrid();
-  view.dataset.mode = mode;
+  plane.inert = false;
   controls.dataset.playing = 'false';
   replayButton.removeAttribute('aria-disabled');
   replayLabel.textContent = 'Replay';
+  living.warm();
   readyOverview();
 }
 
+function openIntro() {
+  resettingIntro = false;
+  spatialGrid = null;
+  progress = 0;
+  mode = 'intro';
+  view.dataset.mode = mode;
+  view.style.opacity = '0';
+  paintLayout(0);
+}
+
 function animateIntro(time) {
-  if (lastIntroTime) introElapsed += Math.min(64, time - lastIntroTime);
+  if (lastIntroTime) introElapsed += Math.min(50, time - lastIntroTime);
   lastIntroTime = time;
-  const fraction = clamp01((introElapsed - openingHold) / revealDuration);
-  if (fraction === 1) { finishIntro(); return; }
-  const next = smooth(fraction);
-  if (next !== progress) {
-    progress = next;
+  if (resettingIntro && introElapsed < replayFade) {
+    view.style.opacity = (1 - easeReveal(introElapsed / replayFade)).toFixed(3);
+  } else {
+    if (resettingIntro) {
+      introElapsed -= replayFade;
+      openIntro();
+    }
+    const fraction = clamp01(introElapsed / revealDuration);
+    if (fraction === 1) { finishIntro(); return; }
+    if (fraction < .10) view.style.opacity = easeReveal(fraction / .10).toFixed(3);
+    else if (view.style.opacity !== '1') view.style.opacity = '1';
+    progress = fraction;
     replayButton.style.setProperty('--reveal-progress', fraction.toFixed(4));
     paintLayout(progress);
   }
@@ -361,23 +378,21 @@ function animateIntro(time) {
 }
 
 function startIntro() {
+  resettingIntro = overviewReady;
   resetGesture();
   stopCamera();
   living.clear(true);
   finishDragHint();
   overviewReady = false;
-  spatialGrid = null;
-  progress = introElapsed = lastIntroTime = 0;
-  mode = 'intro';
-  view.dataset.mode = mode;
+  plane.inert = true;
+  introElapsed = lastIntroTime = 0;
   controls.dataset.playing = 'true';
   replayButton.setAttribute('aria-disabled', 'true');
   replayButton.style.setProperty('--reveal-progress', '0');
   replayLabel.textContent = 'Playing';
   announcement.textContent = 'Playing portfolio animation.';
   if (reduce.matches) { finishIntro(); return; }
-  paintLayout(0);
-  warmPreviews(0);
+  if (!resettingIntro) openIntro();
   introFrame = requestAnimationFrame(animateIntro);
 }
 
@@ -446,8 +461,7 @@ function returnHome() {
 function showAll() {
   if (mode !== 'explore') return;
   preset = 'all';
-  const overview = fitCamera(extent, size);
-  moveCamera(overview, true);
+  moveCamera(overviewCamera, true);
 }
 
 function measure(remeasureLayout = true) {
@@ -461,6 +475,8 @@ function measure(remeasureLayout = true) {
   headerWidth = header.offsetWidth;
   size = { w: innerWidth, h: innerHeight, top: 0, fitTop: Math.ceil(measurement.querySelector('.site-header').offsetHeight + 16) };
   pivot = { x: size.w / 2, y: (size.h + size.top) / 2 };
+  overviewCamera = fitCamera(extent, size);
+  overviewCamera.z = Math.max(.001, overviewCamera.z * 1.14);
   if (layoutChanged) {
     const grid = measurement.querySelector('.masonry-grid');
     const tiles = [...grid.children];
@@ -474,16 +490,10 @@ function measure(remeasureLayout = true) {
     });
     headerAnchor = homeAnchor(size);
     layoutWidth = innerWidth;
-    previewWarmProgress = 0;
-    for (const item of items) {
-      const start = startingBoxes[item.project.index];
-      const cover = item.photoIndex === 0, width = cover ? start.w : start.w * .45;
-      item.revealStart = {
-        x: cover ? start.x : start.x + (start.w - width) / 2 + (item.photoIndex % 2 ? 1 : -1) * start.w * .65,
-        y: cover ? start.y : start.y + start.h * .3 + Math.floor(item.photoIndex / 2) * start.h * .12,
-        width, phase: item.project.index / projects.length * .1
-      };
-    }
+  }
+  previewWarmProgress = 0;
+  for (const item of items) {
+    item.revealStart = planReveal(item, startingBoxes[item.project.index], pivot, size, overviewCamera);
   }
   if (mode === 'explore') {
     if (!widthChanged) {
@@ -491,7 +501,7 @@ function measure(remeasureLayout = true) {
       camera = { ...camera, y: camera.y + shift / camera.z };
       if (cameraTarget) cameraTarget = { ...cameraTarget, y: cameraTarget.y + shift / cameraTarget.z };
     }
-    const destination = preset === 'home' ? homeCamera() : preset === 'all' ? fitCamera(extent,size) : null;
+    const destination = preset === 'home' ? homeCamera() : preset === 'all' ? overviewCamera : null;
     if (destination) {
       if (cameraTarget) cameraTarget = destination;
       else camera = destination;
@@ -697,12 +707,12 @@ view.addEventListener('click', event => {
 function stopMotion() { resetGesture(); stopCamera(); living.clear(true); }
 addEventListener('blur', stopMotion);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { stopMotion(); previewQueue.pause(); detailQueue.pause(); }
+  if (document.hidden) { lastIntroTime = 0; stopMotion(); previewQueue.pause(); detailQueue.pause(); }
   else if (!dialog.open) { previewQueue.resume(); detailQueue.resume(); requestCameraPaint(); }
 });
 reduce.addEventListener('change', () => {
   stopMotion();
-  if (reduce.matches && mode === 'intro') finishIntro();
+  if (reduce.matches && introFrame) finishIntro();
 });
 
 let safariScale = 1;
@@ -750,7 +760,11 @@ replayButton.addEventListener('click', () => {
 });
 measure();
 startIntro();
-document.fonts.ready.then(() => measure(true));
+document.fonts.ready.then(() => {
+  // The opening grid uses image-only boxes with a fixed header line height.
+  // Keep the camera framing stable if the webfont finishes during a reveal.
+  if (overviewReady) measure(true);
+});
 
 
 

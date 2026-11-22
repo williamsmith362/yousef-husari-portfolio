@@ -44,7 +44,20 @@ html.gallery-open { overflow: hidden; }
 @keyframes hint-drag{to{transform:translate(2px,-2px)}}
 @media(prefers-reduced-motion:reduce){.world-drag-hint,.world-drag-hint-label{transition:none}.world-drag-hint svg{animation:none}}
 
-@media (prefers-reduced-motion: no-preference) {
-  .world-viewport[data-mode="intro"] .world-plane { animation: world-opening-fade 450ms ease both; }
-  @keyframes world-opening-fade { from { opacity: 0; } to { opacity: 1; } }
+.world-viewport::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: 0;
+  background: radial-gradient(ellipse at 50% 50%, #f0f0ee 0%, transparent 68%);
+  transition: opacity 1000ms ease;
+  pointer-events: none;
+}
+[data-theme="midnight"] .world-viewport::before {
+  background: radial-gradient(ellipse at 50% 50%, #3b3b3c 0%, #242425 38%, transparent 72%);
+}
+.world-viewport[data-illuminated]::before { opacity: 1; }
+.world-viewport[data-mode="intro"]:not([data-progress]) { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .world-viewport::before { transition: none; }
 }
