@@ -1,11 +1,11 @@
 .motion-entry {
-  display: inline-grid;
-  place-content: center;
-  justify-items: center;
-  gap: 6px;
-  width: 82px;
-  height: 82px;
-  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  white-space: nowrap;
   border: 1px solid color-mix(in srgb, var(--ink) 30%, var(--paper));
   border-radius: 4px;
   background: var(--soft);
@@ -16,8 +16,9 @@
 }
 .motion-entry:hover, .motion-entry:focus-visible { border-color: currentColor; }
 .motion-entry svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
+  flex: none;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -51,7 +52,7 @@
 }
 .world-zoom-guide { margin: 0 0 6px; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .world-zoom-touch, .world-controls[data-playing="true"] .world-zoom-guide { display: none; }
-.world-replay { position: relative; flex: none; overflow: hidden; pointer-events: auto; }
+.world-replay { position: relative; flex: none; min-width: 98px; overflow: hidden; pointer-events: auto; }
 .world-controls[data-playing="true"] .world-replay-icon,
 .world-controls[data-playing="false"] .world-playing-icon { display: none; }
 .world-replay[aria-disabled="true"] { cursor: default; }
