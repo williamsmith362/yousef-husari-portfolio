@@ -37,10 +37,11 @@ export function planReveal(item, box, pivot, size, overview) {
     Math.log1p(Math.max(0, originY - fold) / size.h) * size.h * .10;
   const fromX = mix(originX, toX + side * size.w * .17, offscreen * .68);
   const fromY = mix(foldedY - pivot.y, toY + side * size.h * .13, offscreen * .86);
-  const fromWidth = box.w * (cover ? 1 : .52);
+  const fromWidth = box.w * (cover ? 1 : .46);
   const widthRatio = Math.log(item.w * overview.z / fromWidth);
-  const appear = openingCover ? 0 : (cover ? .12 : .19) + sweep * .35 + Math.min(.11, layer * .019);
-  const land = .81 + sweep * .16;
+  const firstExposure = (cover ? .13 : .20) + sweep * .30 + Math.min(.07, layer * .012);
+  const land = Math.min(.985, item.inkTime + .058);
+  const appear = openingCover ? 0 : Math.min(land - .23, Math.max(firstExposure, item.inkTime - .38));
   const dx = toX - fromX;
   const dy = toY - fromY;
   const distance = Math.max(1, Math.hypot(dx, dy));
@@ -63,14 +64,14 @@ export function placeRevealItem(item, progress, camera, pivot, settled = false) 
     return;
   }
 
-  const departure = route.openingCover ? .04 : Math.max(.05, route.appear - .12);
+  const departure = route.openingCover ? .04 : Math.max(.05, route.appear - .07);
   const travel = easeReveal(phase(departure, route.land, progress));
-  const contraction = easeReveal(phase(.04, .89, progress));
+  const contraction = easeReveal(phase(.04, .86, progress));
   const arc = 4 * travel * (1 - travel);
   const nearScale = 1 - .24 * contraction;
   const screenX = mix(route.fromX * nearScale, route.toX, travel) + route.bendX * arc;
   const screenY = mix(route.fromY * nearScale, route.toY, travel) + route.bendY * arc;
-  const sizeTime = route.openingCover ? contraction : mix(contraction, travel, .53);
+  const sizeTime = route.openingCover ? mix(contraction, travel, .28) : mix(contraction, travel, .63);
   const screenWidth = route.fromWidth * Math.exp(route.widthRatio * sizeTime);
 
   item.width = screenWidth / camera.z;

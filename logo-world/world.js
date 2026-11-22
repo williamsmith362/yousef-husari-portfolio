@@ -3,7 +3,8 @@ import { mountGallery } from './gallery.mjs?v=momentum-images-1';
 import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
 import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=raised-header-2';
 import { homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
-import { easeReveal, planReveal, placeRevealItem, revealCamera } from './world-reveal.mjs?v=2';
+import { easeReveal, planReveal, placeRevealItem, revealCamera } from './world-reveal.mjs?v=3';
+import { makeSignatureStrokes, penProgress, photoInkTime } from './signature-motion.mjs';
 import { makeLogoLayout, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=signature-trace-1';
 import { SCROLL_FEEL, inputTime, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=wave-load-2';
@@ -24,14 +25,16 @@ const revealDuration = 6150;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
 const { projects, trace } = makeLogoLayout(pieces);
-for (const stroke of trace) {
+const extent = getExtent(projects);
+const signatureStrokes = makeSignatureStrokes(trace, extent.r - extent.l);
+const signaturePaths = signatureStrokes.map(stroke => {
   const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path.setAttribute('d', stroke.map(([x, y], index) => (index ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(' '));
+  path.setAttribute('d', stroke.d);
   path.setAttribute('pathLength', '1');
   path.setAttribute('vector-effect', 'non-scaling-stroke');
   signature.append(path);
-}
-const extent = getExtent(projects);
+  return { path, stroke, lastOffset: null };
+});
 const sourceCovers = Array.from(measurement.querySelectorAll('button.piece')).sort((a, b) => Number(a.dataset.piece) - Number(b.dataset.piece));
 const clamp01 = n => Math.max(0, Math.min(1, n));
 let size = { w: innerWidth, h: innerHeight, top: 0, fitTop: 139 };
@@ -80,7 +83,8 @@ const items = projects.flatMap(project => project.items.map(item => {
   imageElement.dataset.imageReady = 'false';
   imageElement.removeAttribute('srcset');
   plane.append(element);
-  return { imageElement, previewElement: null, imageLevel: null, previewRetryAt: 0, previewPriority: Infinity, detailUsedAt: 0, frame: element.querySelector('.product-photo'), ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
+  const inkTime = photoInkTime(signatureStrokes, project.x + item.x + item.w / 2, project.y + item.y + item.h / 2);
+  return { inkTime, imageElement, previewElement: null, imageLevel: null, previewRetryAt: 0, previewPriority: Infinity, detailUsedAt: 0, frame: element.querySelector('.product-photo'), ...item, xLocal: item.x, yLocal: item.y, project, element, x: 0, y: 0, width: item.w, height: item.h, alpha: 0 };
 }));
 
 const living = createLivingLogo({ items, view, getScene: () => ({camera, pivot, size}), ready: () => mode === 'explore' && overviewReady && !dialog.open && !cameraFrame, reduced: () => reduce.matches, onDetail: scheduleImageQuality, reservedArea: BOARD_HEADER_AREA });
@@ -311,7 +315,7 @@ function paintCamera() {
   updateHitTargets();
   updateHomeHeader();
   updateDragHint();
-  const showLight = mode === 'intro' ? progress > .62 : camera.z <= minimumZoom() * 1.12;
+  const showLight = mode === 'intro' ? progress > .45 : camera.z <= minimumZoom() * 1.12;
   if (showLight !== illuminated) {
     illuminated = showLight;
     view.toggleAttribute('data-illuminated', illuminated);
@@ -320,8 +324,13 @@ function paintCamera() {
     const left = camera.x - pivot.x / camera.z;
     const top = camera.y - pivot.y / camera.z;
     signature.setAttribute('viewBox', [left, top, size.w / camera.z, size.h / camera.z].map(value => value.toFixed(2)).join(' '));
-    const offset = mode === 'intro' ? 1 - easeReveal((progress - .63) / .34) : 0;
-    signature.style.strokeDashoffset = offset.toFixed(4);
+    for (const entry of signaturePaths) {
+      const offset = mode === 'intro' ? 1 - penProgress(entry.stroke, progress) : 0;
+      const dash = offset.toFixed(4);
+      if (dash === entry.lastOffset) continue;
+      entry.path.style.strokeDashoffset = dash;
+      entry.lastOffset = dash;
+    }
   }
   if (overviewReady) scheduleImageQuality();
 }
