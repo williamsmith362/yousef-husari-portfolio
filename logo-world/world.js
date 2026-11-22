@@ -380,7 +380,7 @@ function animateIntro(time) {
   introFrame = requestAnimationFrame(animateIntro);
 }
 
-function startIntro() {
+function startIntro(playRequested = false) {
   resettingIntro = overviewReady;
   resetGesture();
   stopCamera();
@@ -394,7 +394,7 @@ function startIntro() {
   replayButton.style.setProperty('--reveal-progress', '0');
   replayLabel.textContent = 'Playing';
   announcement.textContent = 'Playing portfolio animation.';
-  if (reduce.matches) { finishIntro(); return; }
+  if (reduce.matches && !playRequested) { finishIntro(); return; }
   if (!resettingIntro) openIntro();
   introFrame = requestAnimationFrame(animateIntro);
 }
@@ -742,10 +742,11 @@ function openGallery(pieceIndex, photoIndex, trigger) { if (!overviewReady) retu
 
 view.prepend(header);
 replayButton.addEventListener('click', () => {
-  if (overviewReady) startIntro();
+  if (overviewReady) startIntro(true);
 });
 measure();
-startIntro();
+// A visitor who selects Explore in motion or Replay has opted in to this reveal.
+startIntro(new URLSearchParams(location.search).get('play') === '1');
 document.fonts.ready.then(() => {
   // Keep the camera framing stable if the webfont finishes during a reveal.
   if (overviewReady) measure();
