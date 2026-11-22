@@ -115,7 +115,7 @@ const fl=value=>formatLength(value,state.unit,state.fractions);
 let overviewKeys=null;
 let measurementPickerOpen=false;
 const overviewRows=()=>result.rows.filter(row=>overviewKeys===null||overviewKeys.has(row.key));
-const overviewCount=rows=>rows.length===result.rows.length?'All':String(rows.length)+' selected';
+const overviewCount=rows=>`${rows.length} of ${result.rows.length} shown`;
 function overviewGraphic(rows){
  return patternView(result,{keys:rows.map(row=>row.key),seams:state.draft.seams,unit:state.unit,fractions:state.fractions,id:'overviewPattern',interactive:true});
 }
@@ -156,7 +156,7 @@ function render(){
    <div class="workbench-tools"><div class="pattern-legend"><span><i class="legend-stitch"></i>Stitch</span><span><i class="legend-cut"></i>Cut · seam allowance</span></div><div class="workbench-actions"><button type="button" class="workbench-link" data-open-leg-playground>Play around</button><button type="button" class="workbench-link" data-open-allowances>Seam allowances ↗</button></div></div>
    <div class="pattern-stage"><figure id="overviewGraphic">${overviewGraphic(rows)}</figure>
    <aside class="measurement-focus"><details class="measurement-picker" ${measurementPickerOpen?'open':''}>
-    <summary>Explore measurements <span id="measurementCount">${overviewCount(rows)}</span></summary>
+    <summary>Show measurements <span id="measurementCount">${overviewCount(rows)}</span></summary>
     <div class="measurement-picker-actions"><button type="button" data-select-measurements="all">Select all</button><button type="button" data-select-measurements="none">Clear</button></div>
     <fieldset class="measurement-options"><legend class="sr-only">Measurements to show on the pattern</legend>
      ${result.rows.map(row=>`<label><input type="checkbox" data-overview-measurement value="${row.key}" ${selected.has(row.key)?'checked':''}><span>${escapeHTML(row.label)}</span></label>`).join('')}

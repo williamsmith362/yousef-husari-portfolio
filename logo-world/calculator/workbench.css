@@ -634,7 +634,7 @@
   stroke-width: 1.5;
 }
 
-/* Keep the checklist within reach of the pattern on small screens. */
+/* Use the page scroll for the full measurement checklist. */
 .measurement-picker {
   border: 1px solid var(--control-line, var(--line));
   background: var(--surface);
@@ -692,24 +692,31 @@
 }
 
 .measurement-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
   min-inline-size: 0;
-  max-height: min(250px, 40dvh);
-  overflow: auto;
-  overscroll-behavior: contain;
   margin: 0;
   padding: 0;
   border: 0;
+  background: var(--line);
 }
 
 .measurement-options label {
   cursor: pointer;
-  min-height: 42px;
+  min-width: 0;
+  min-height: 44px;
   padding: 6px 8px;
+  background: var(--surface);
   font-size: 13px;
 }
 
-.measurement-options label + label {
-  border-top: 1px solid var(--line);
+.measurement-options label:last-of-type:nth-of-type(odd) {
+  grid-column: 1 / -1;
+}
+
+.measurement-options label span {
+  overflow-wrap: anywhere;
 }
 
 .measurement-options label:has(input:checked) {
