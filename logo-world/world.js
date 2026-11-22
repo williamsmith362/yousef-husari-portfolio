@@ -3,7 +3,7 @@ import { mountGallery } from './gallery.mjs?v=momentum-images-1';
 import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
 import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=raised-header-2';
 import { homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
-import { easeReveal, planReveal, placeRevealItem, revealCamera, revealContraction } from './world-reveal.mjs?v=4';
+import { easeReveal, planReveal, placeRevealItem, revealCamera, revealContraction } from './world-reveal.mjs?v=5';
 import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=edge-reveal-1';
 import { SCROLL_FEEL, inputTime, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=wave-load-2';
@@ -18,8 +18,8 @@ const dragHint = document.querySelector('.world-drag-hint');
 const controls = document.querySelector('.world-controls');
 const replayButton = controls.querySelector('.world-replay');
 const replayLabel = replayButton.querySelector('.world-replay-label');
-const replayFade = 220;
-const revealDuration = 6150;
+const replayFade = 165;
+const revealDuration = 4150;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
 const projects = makeProjects(pieces);
@@ -53,7 +53,7 @@ let headerHeight = 115, headerWidth = 0, previousHeaderOpacity = -1;
 let paintFrame = 0, qualityTimer = 0;
 let headerAnchor = homeAnchor(size), pendingMeasure = false;
 let previewWarmProgress = 0;
-const previewQueue = createImageQueue({ concurrency: navigator.connection?.saveData ? 3 : innerWidth < 620 ? 6 : 8 });
+const previewQueue = createImageQueue({ concurrency: navigator.connection?.saveData ? 3 : innerWidth < 620 ? 7 : 9 });
 const detailQueue = createImageQueue({ concurrency: innerWidth < 620 ? 2 : 4 });
 
 const items = projects.flatMap(project => project.items.map(item => {
@@ -194,7 +194,7 @@ function requestPreview(item, priority) {
     ready(image) {
       if (mode === 'intro' && progress > item.revealStart.appear) {
         // Give a late preview an entrance of its own from the same edge.
-        item.lateEntry = Math.min(progress, .81);
+        item.lateEntry = progress;
       }
       item.previewElement = replaceDecodedImage(item.imageElement, image, { fade: mode !== 'intro' });
       item.imageElement = item.previewElement;
@@ -209,7 +209,7 @@ function requestPreview(item, priority) {
 }
 
 function warmPreviews(value) {
-  const ahead = Math.min(1, Math.floor(value * 16) / 16 + .34);
+  const ahead = Math.min(1, Math.floor(value * 16) / 16 + .49);
   if (ahead <= previewWarmProgress) return;
   previewWarmProgress = ahead;
   for (const item of items) {
