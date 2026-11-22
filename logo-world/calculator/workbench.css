@@ -853,3 +853,113 @@
     font-weight: 300;
   }
 }
+
+/* Phone spacing for the calculator's four steps. */
+@media screen and (max-width: 600px) {
+  :root {
+    --phone-gutter: clamp(16px, 5.5vw, 28px);
+    scroll-padding-top: 20px;
+  }
+
+  .portfolio-strip,
+  .shell,
+  .shell:has(#draft:not([hidden])) {
+    width: calc(100% - 2 * var(--phone-gutter));
+  }
+
+  .portfolio-strip {
+    padding-top: 16px;
+  }
+
+  .appbar {
+    position: relative;
+    gap: 12px;
+    padding: 14px var(--phone-gutter) 18px;
+  }
+
+  .appbar .brand {
+    margin-bottom: 0;
+  }
+
+  .appbar .toolbar {
+    gap: 12px;
+  }
+
+  .shell,
+  .shell:has(#draft:not([hidden])) {
+    margin-top: 32px;
+  }
+
+  .page-heading,
+  .shell:has(#draft:not([hidden])) .page-heading {
+    margin-bottom: 26px;
+  }
+
+  .shell:has(#draft:not([hidden])) .test-label {
+    margin-bottom: 12px;
+  }
+
+  .shell:has(#draft:not([hidden])) #stepHint {
+    margin-top: 12px;
+  }
+
+  .steps,
+  .shell:has(#draft:not([hidden])) .steps {
+    gap: 6px;
+    border: 0;
+    margin-bottom: 32px;
+  }
+
+  .steps button,
+  .steps button + button,
+  .shell:has(#draft:not([hidden])) .steps button {
+    flex-direction: column;
+    gap: 4px;
+    min-height: 54px;
+    padding: 8px 2px;
+    border: 1px solid var(--line);
+  }
+
+  .section-heading {
+    margin-bottom: 24px;
+  }
+
+  .measurement-grid,
+  #allowancesContent .measurement-grid {
+    row-gap: 28px;
+  }
+
+  .field-label {
+    margin-bottom: 9px;
+  }
+
+  .disclosure,
+  .layout-details,
+  .measurement-picker {
+    margin-top: 20px;
+  }
+
+  .measure-table thead th {
+    top: 0;
+  }
+
+  .workbench-tools,
+  .workbench-bottom {
+    gap: 10px 16px;
+    padding: 14px 16px;
+  }
+
+  .step-actions {
+    gap: 12px;
+    padding: 12px var(--phone-gutter) calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .step-actions .button {
+    min-width: 0;
+    padding-inline: clamp(10px, 3vw, 16px);
+  }
+
+  #stepCount {
+    flex-shrink: 0;
+  }
+}
