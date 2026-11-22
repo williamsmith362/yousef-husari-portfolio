@@ -29,11 +29,14 @@ export function planReveal(item, box, pivot, size, overview) {
   // from their own cover, including projects that start below the fold.
   const side = item.photoIndex % 2 ? 1 : -1;
   const layer = Math.floor(item.photoIndex / 2);
-  const fromX = box.x + box.w / 2 + (cover ? 0 : side * box.w * (.26 + layer * .035));
+  const originX = box.x + box.w / 2 + (cover ? 0 : side * box.w * (.26 + layer * .035));
   const originY = box.y + box.h / 2 + (cover ? 0 : box.h * (layer * .07 - .06));
+  const offscreen = openingCover ? 0 : clamp((originY - size.h * .62) / size.h);
   const fold = size.h * .76;
-  const fromY = (openingCover ? originY : Math.min(originY, fold) +
-    Math.log1p(Math.max(0, originY - fold) / size.h) * size.h * .18) - pivot.y;
+  const foldedY = openingCover ? originY : Math.min(originY, fold) +
+    Math.log1p(Math.max(0, originY - fold) / size.h) * size.h * .10;
+  const fromX = mix(originX, toX + side * size.w * .17, offscreen * .68);
+  const fromY = mix(foldedY - pivot.y, toY + side * size.h * .13, offscreen * .86);
   const fromWidth = box.w * (cover ? 1 : .52);
   const widthRatio = Math.log(item.w * overview.z / fromWidth);
   const appear = openingCover ? 0 : (cover ? .12 : .19) + sweep * .35 + Math.min(.11, layer * .019);

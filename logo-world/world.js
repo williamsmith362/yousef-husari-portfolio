@@ -3,13 +3,14 @@ import { mountGallery } from './gallery.mjs?v=momentum-images-1';
 import { createLivingLogo } from './living-logo.mjs?v=locked-board-1';
 import { BOARD_HEADER_AREA, boardHeaderPose } from './board-header.mjs?v=raised-header-2';
 import { homePresence, homeAnchor, screenBox, inViewport } from './world-presence.mjs';
-import { easeReveal, planReveal, placeRevealItem, revealCamera } from './world-reveal.mjs';
-import { makeProjects, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=hoodie-growth-1';
+import { easeReveal, planReveal, placeRevealItem, revealCamera } from './world-reveal.mjs?v=2';
+import { makeLogoLayout, getExtent, fitCamera, clampCamera, zoomAt } from './world-layout.mjs?v=signature-trace-1';
 import { SCROLL_FEEL, inputTime, dampCamera, decayVelocity, createVelocityTracker, createWheelSmoothing } from './motion.mjs?v=mobile-coast-1';
 import { createImageQueue, replaceDecodedImage } from './image-loading.mjs?v=wave-load-2';
 
 const view = document.querySelector('.world-viewport');
 const plane = document.querySelector('.world-plane');
+const signature = document.querySelector('.world-signature');
 const measurement = document.querySelector('.world-measurement');
 const header = document.querySelector('.world-header');
 const dialog = document.querySelector('.world-gallery');
@@ -22,7 +23,14 @@ const replayFade = 220;
 const revealDuration = 6150;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
 const pieces = JSON.parse(document.getElementById('portfolio-data').textContent);
-const projects = makeProjects(pieces);
+const { projects, trace } = makeLogoLayout(pieces);
+for (const stroke of trace) {
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', stroke.map(([x, y], index) => (index ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1)).join(' '));
+  path.setAttribute('pathLength', '1');
+  path.setAttribute('vector-effect', 'non-scaling-stroke');
+  signature.append(path);
+}
 const extent = getExtent(projects);
 const sourceCovers = Array.from(measurement.querySelectorAll('button.piece')).sort((a, b) => Number(a.dataset.piece) - Number(b.dataset.piece));
 const clamp01 = n => Math.max(0, Math.min(1, n));
@@ -54,7 +62,7 @@ let headerHeight = 115, headerWidth = 0, previousHeaderOpacity = -1;
 let paintFrame = 0, qualityTimer = 0, layoutWidth = 0;
 let headerAnchor = homeAnchor(size), pendingMeasure = false;
 let previewWarmProgress = 0;
-const previewQueue = createImageQueue({ concurrency: innerWidth < 620 ? 4 : 6 });
+const previewQueue = createImageQueue({ concurrency: navigator.connection?.saveData ? 3 : innerWidth < 620 ? 6 : 8 });
 const detailQueue = createImageQueue({ concurrency: innerWidth < 620 ? 2 : 4 });
 
 const items = projects.flatMap(project => project.items.map(item => {
@@ -179,7 +187,7 @@ function updateHomeHeader() {
   const presence = homePresence(camera, minimumZoom(), headerAnchor, pivot);
   const pose = mode === 'intro' ? presence : boardHeaderPose(camera, pivot, { width: headerWidth, height: headerHeight });
   header.style.transform = 'translate3d(' + pose.x.toFixed(3) + 'px,' + pose.top.toFixed(3) + 'px,0) scale(' + pose.scale.toFixed(6) + ')';
-  setHeaderOpacity(presence.opacity);
+  setHeaderOpacity(presence.opacity * (mode === 'intro' ? 1 - easeReveal((progress - .18) / .34) : 1));
 }
 
 // Touch events can arrive faster than the display. Paint only the latest pose.
@@ -206,7 +214,7 @@ function requestPreview(item, priority) {
 }
 
 function warmPreviews(value) {
-  const ahead = Math.min(1, Math.floor(value * 16) / 16 + .25);
+  const ahead = Math.min(1, Math.floor(value * 16) / 16 + .34);
   if (ahead <= previewWarmProgress) return;
   previewWarmProgress = ahead;
   for (const item of items) {
@@ -307,6 +315,13 @@ function paintCamera() {
   if (showLight !== illuminated) {
     illuminated = showLight;
     view.toggleAttribute('data-illuminated', illuminated);
+  }
+  if (showLight) {
+    const left = camera.x - pivot.x / camera.z;
+    const top = camera.y - pivot.y / camera.z;
+    signature.setAttribute('viewBox', [left, top, size.w / camera.z, size.h / camera.z].map(value => value.toFixed(2)).join(' '));
+    const offset = mode === 'intro' ? 1 - easeReveal((progress - .63) / .34) : 0;
+    signature.style.strokeDashoffset = offset.toFixed(4);
   }
   if (overviewReady) scheduleImageQuality();
 }

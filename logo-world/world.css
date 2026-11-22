@@ -61,3 +61,25 @@ html.gallery-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .world-viewport::before { transition: none; }
 }
+
+.world-signature {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: #6e6e71;
+  stroke-width: 1px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 450ms ease;
+}
+[data-theme="midnight"] .world-signature { stroke: #a9a9b0; }
+.world-viewport[data-illuminated] .world-signature { opacity: .48; }
+@media (prefers-reduced-motion: reduce) {
+  .world-signature { transition: none; }
+}
