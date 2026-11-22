@@ -826,3 +826,30 @@
     background: #444444;
   }
 }
+
+/* Use the light Helvetica Neue face for calculator text on phones. */
+@media screen and (max-width: 600px) {
+  :root {
+    --font: "Helvetica Neue", system-ui, sans-serif;
+  }
+
+  body,
+  .test-label,
+  #stepHint,
+  .step-position,
+  .steps button,
+  .steps button[aria-current=step],
+  .segmented button,
+  .top-fractions,
+  .step-actions .button,
+  .empty-draft .text-button,
+  .fabric-empty .text-button {
+    font-weight: 300;
+  }
+
+  .empty-draft h3,
+  .fabric-empty h3 {
+    font-family: var(--font);
+    font-weight: 300;
+  }
+}
